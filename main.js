@@ -127,13 +127,13 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
         if (!conn.authState.creds.registered) {
             let addNumber
             if (!!phoneNumber) {
-                addNumber = phoneNumber.replace(/[^0-9]/g, '')
+                addNumber = String(phoneNumber).replace(/[^0-9]/g, '')
             } else {
                 do {
                     console.log(chalk.hex('#00FFFF')('🐺 INGRESAR NÚMERO'))
                     console.log(chalk.white('[+] '))
                     phoneNumber = await question('')
-                    phoneNumber = phoneNumber.replace(/\D/g, '')
+                    phoneNumber = String(phoneNumber).replace(/\D/g, '')
                     if (!phoneNumber.startsWith('+')) {
                         phoneNumber = `+${phoneNumber}`
                     }
@@ -472,13 +472,13 @@ _quickTest().catch(console.error)
 
 async function isValidPhoneNumber(number) {
     try {
-        number = number.replace(/\s+/g, '')
-        if (number.startsWith('+521')) {
-            number = number.replace('+521', '+52')
-        } else if (number.startsWith('+52') && number[4] === '1') {
-            number = number.replace('+52 1', '+52')
+        let num = String(number).replace(/\s+/g, '')
+        if (num.startsWith('+521')) {
+            num = num.replace('+521', '+52')
+        } else if (num.startsWith('+52') && num[4] === '1') {
+            num = num.replace('+52 1', '+52')
         }
-        const parsedNumber = phoneUtil.parseAndKeepRawInput(number)
+        const parsedNumber = phoneUtil.parseAndKeepRawInput(num)
         return phoneUtil.isValidNumber(parsedNumber)
     } catch (error) {
         return false
