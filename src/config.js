@@ -20,9 +20,7 @@ global.tiempo = d.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', 
 // ─────────────────────────────
 
 global.botNumber = "" // Agregue el número del Bot en "botNumberCode" si desea recibir código de 8 dígitos sin registrar el número en la consola.
-global.owner = [
-  ["573114910796", "Arlette Xz", true]
-]
+global.owner = ["573114910796", "573237649689", "5217225305296"]
 global.suittag = ["573114910796"] 
 global.prems = []
 global.prefix = [":", "💙", "/"]
