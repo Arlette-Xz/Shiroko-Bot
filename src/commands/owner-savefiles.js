@@ -32,10 +32,24 @@ m.reply(`ꕤ El archivo *${file}* ha sido eliminado con éxito.`)
 break
 }
 case 'getplugin': {
-if (!text) return m.reply(`ꕤ Ingrese el nombre de algún plugin existente*\n\n*—◉ Ejemplo*\n*◉ ${usedPrefix + command}* info-infobot\n\n*—◉ Lista de commands:*\n*◉* ${ar1.map(v => ' ' + v).join`\n*◉*`}`)
-if (!ar1.includes(text)) return m.reply(`ꕥ No se encontró el plugin "${text}".\n\n*—◉ commands existentes:*\n*◉* ${ar1.map(v => ' ' + v).join`\n*◉*`}`)
-const filePath = `./src/commands/${text}.js`
-await conn.sendMessage(m.chat, { document: fs.readFileSync(filePath), mimetype: 'application/javascript', fileName: `${text}.js` }, { quoted: m })
+if (!text) return m.reply(`ꕤ Ingrese el nombre de algún plugin existente*\n\n*—◉ Ejemplo*\n*◉ ${usedPrefix + command} downloads-play\n\n*—◉ Lista de commands:*\n*◉* ${ar1.map(v => ' ' + v).join`\n*◉*`}`)
+
+const fullFileName = ar.find(fileName => fileName.endsWith(`${text}.js`))
+
+if (!fullFileName) return m.reply(`ꕥ No se encontró el plugin "${text}".\n\n*—◉ commands existentes:*\n*◉* ${ar1.map(v => ' ' + v).join`\n*◉*`}`)
+
+let filePath
+if (fullFileName.startsWith('commands/')) {
+    filePath = `./src/${fullFileName}` 
+} else {
+    filePath = `./src/${fullFileName}` 
+}
+
+await conn.sendMessage(m.chat, { 
+    document: fs.readFileSync(filePath), 
+    mimetype: 'application/javascript', 
+    fileName: fullFileName 
+}, { quoted: m })
 break
 }}} catch (e) {
 m.reply(`⚠︎ Se ha producido un problema.\n> Usa ${usedPrefix}report para informarlo.\n\n${e.message}`)
