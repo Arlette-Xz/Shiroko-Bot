@@ -36,7 +36,6 @@ if (typeof protoType === 'function') protoType();
 if (typeof serialize === 'function') serialize();
 
 const __dirname = global.__dirname(import.meta.url)
-
 const tmpDir = join(__dirname, 'tmp')
 if (!existsSync(tmpDir)) {
     mkdirSync(tmpDir, { recursive: true })
@@ -64,10 +63,10 @@ if (methodCodeQR) {
 if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.json`)) {
     do {
         console.log('')
-        console.log(chalk.white('   ¿Cómo quieres conectar?'))
-        console.log(chalk.white('   ') + chalk.hex('#00FFFF')('1) ') + chalk.white('Usar código QR'))
-        console.log(chalk.white('   ') + chalk.hex('#00FFFF')('2) ') + chalk.white('Usar código de 8 dígitos'))
-        console.log(chalk.white('   » Tu opción: '))
+        console.log(chalk.hex('#FFFFFF')('   ¿Cómo quieres conectar?'))
+        console.log(chalk.hex('#FFFFFF')('   ') + chalk.hex('#00FFFF')('1) ') + chalk.hex('#FFFFFF')('Usar código QR'))
+        console.log(chalk.hex('#FFFFFF')('   ') + chalk.hex('#00FFFF')('2) ') + chalk.hex('#FFFFFF')('Usar código de 8 dígitos'))
+        console.log(chalk.hex('#00FFFF')('   » Tu opción: '))
         opcion = await question('')
         if (!/^[1-2]$/.test(opcion)) {
             console.log(chalk.red('   Solo opciones 1 o 2'))
@@ -131,7 +130,7 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
             } else {
                 do {
                     console.log(chalk.hex('#00FFFF')('🐺 INGRESAR NÚMERO'))
-                    console.log(chalk.white('[+] '))
+                    console.log(chalk.hex('#FFFFFF')('[+] '))
                     phoneNumber = await question('')
                     phoneNumber = String(phoneNumber).replace(/\D/g, '')
                     if (!phoneNumber.startsWith('+')) {
@@ -145,9 +144,9 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
                     codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
                     console.log(chalk.hex('#00FFFF')('🔐 CÓDIGO GENERADO'))
                     console.log(chalk.hex('#00FFFF')('──────────────────────────'))
-                    console.log(chalk.white('╔══════════════════════╗'))
-                    console.log(chalk.white('║       ' + codeBot + '       ║'))
-                    console.log(chalk.white('╚══════════════════════╝'))
+                    console.log(chalk.hex('#FFFFFF')('╔══════════════════════╗'))
+                    console.log(chalk.hex('#FFFFFF')('║       ' + codeBot + '       ║'))
+                    console.log(chalk.hex('#FFFFFF')('╚══════════════════════╝'))
                     console.log(chalk.hex('#00FFFF')('──────────────────────────'))
                 }, 1000)
             }
@@ -175,15 +174,56 @@ async function connectionUpdate(update) {
     
     if (update.qr != 0 && update.qr != undefined || methodCodeQR) {
         if (opcion == '1' || methodCodeQR) {
-            console.log(chalk.white(`[ 青 ]  Escanea este código QR`))
+            console.log(chalk.hex('#FFFFFF')(`[ 青 ]  Escanea este código QR`))
         }
     }
     
     if (connection === "open") {
-        const userJid = jidNormalizedUser(conn.user.id)
         const userName = conn.user.name || conn.user.verifiedName || "Desconocido"
         await joinChannels(conn)
-        console.log(chalk.white(`[ 青 ]  Conectado a: ${userName}`))
+        console.log(chalk.hex('#00FFFF')('[ 青 ] ') + chalk.hex('#FFFFFF')(`Conectado a: ${userName}`))
+
+        const rutaJadi = join(__dirname, `./${global.jadi}`)
+        if (existsSync(rutaJadi)) {
+            const folders = readdirSync(rutaJadi).filter(f => {
+                const p = join(rutaJadi, f)
+                return statSync(p).isDirectory() && existsSync(join(p, 'creds.json'))
+            })
+            
+            if (folders.length > 0) {
+                for (const folder of folders) {
+                    const pathBot = join(rutaJadi, folder)
+                    const runJadi = async () => {
+                        try {
+                            const sbot = await shirokoJadiBot({ 
+                                pathshirokoJadiBot: pathBot, 
+                                conn, 
+                                m: null, 
+                                args: [], 
+                                usedPrefix: '/', 
+                                command: 'serbot',
+                                fromCommand: false
+                            })
+                            
+                            if (sbot && sbot.ev) {
+                                sbot.ev.on('connection.update', async (sUpdate) => {
+                                    const { connection: sConn, lastDisconnect: sLast } = sUpdate
+                                    if (sConn === 'close') {
+                                        const sCode = new Boom(sLast?.error)?.output?.statusCode
+                                        if (sCode !== DisconnectReason.loggedOut) {
+                                            await new Promise(r => setTimeout(r, 10000))
+                                            runJadi()
+                                        }
+                                    }
+                                })
+                            }
+                        } catch (e) {}
+                    }
+                    await runJadi()
+                    await new Promise(r => setTimeout(r, 5000))
+                }
+            }
+        }
 
         const restartFile = join(__dirname, './src/json/restart.json')
         if (existsSync(restartFile)) {
@@ -191,19 +231,15 @@ async function connectionUpdate(update) {
                 const data = JSON.parse(readFileSync(restartFile))
                 await conn.sendMessage(data.chat, { text: 'ꕤ Reiniciado con éxito, nuevamente en línea.', edit: data.key })
                 unlinkSync(restartFile)
-            } catch (e) {
-                console.error('Error al editar mensaje de reinicio:', e)
-            }
+            } catch (e) {}
         }
     }
     
     let reason = new Boom(lastDisconnect?.error)?.output?.statusCode
     if (connection === "close") {
-        if ([401, 440, 428, 405].includes(reason)) {
-            console.log(chalk.red(`→ (${code}) › Cierra la session Principal.`))
+        if (reason !== DisconnectReason.loggedOut) {
+            await global.reloadHandler(true).catch(console.error)
         }
-        console.log(chalk.yellow("→ Reconectando el Bot Principal..."))
-        await global.reloadHandler(true).catch(console.error)
     }
 }
 
@@ -265,27 +301,6 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error("Rechazo no manejado detectado:", reason)
 })
 
-global.rutaJadiBot = join(__dirname, `./${global.jadi}`)
-if (global.shirokoJadibts) {
-    if (!existsSync(global.rutaJadiBot)) {
-        mkdirSync(global.rutaJadiBot, { recursive: true })
-        console.log(chalk.white(`ꕥ La carpeta: ${global.jadi} se creó correctamente.`))
-    }
-    const readRutaJadiBot = readdirSync(global.rutaJadiBot)
-    if (readRutaJadiBot.length > 0) {
-        const creds = 'creds.json'
-        for (const gjbts of readRutaJadiBot) {
-            const botPath = join(global.rutaJadiBot, gjbts)
-            if (existsSync(botPath) && statSync(botPath).isDirectory()) {
-                const readBotPath = readdirSync(botPath)
-                if (readBotPath.includes(creds)) {
-                    shirokoJadiBot({ pathshirokoJadiBot: botPath, m: null, conn, args: '', usedPrefix: '/', command: 'serbot' })
-                }
-            }
-        }
-    }
-}
-
 function getRelativePluginName(filePath) {
     const commandsFolder = global.__dirname(join(__dirname, './src/commands'))
     const relativePath = path.relative(commandsFolder, filePath)
@@ -299,24 +314,20 @@ async function loadCommandsFromFolders() {
     async function loadFolder(folderPath, basePath = commandsFolder) {
         try {
             const items = readdirSync(folderPath)
-            
             for (const item of items) {
                 const fullPath = join(folderPath, item)
                 const stat = statSync(fullPath)
-                
                 if (stat.isDirectory()) {
                     await loadFolder(fullPath, basePath)
                 } else if (stat.isFile() && /\.js$/.test(item)) {
                     try {
                         const file = global.__filename(fullPath)
                         const module = await import(file)
-                       
                         const pluginName = getRelativePluginName(fullPath)
                         global.plugins[pluginName] = module.default || module
                     } catch (e) {
                         const pluginName = getRelativePluginName(fullPath)
                         console.error(chalk.red(`✗ Error al cargar ${pluginName}: ${e.message}`))
-                        delete global.plugins[getRelativePluginName(fullPath)]
                     }
                 }
             }
@@ -324,7 +335,6 @@ async function loadCommandsFromFolders() {
             console.error(`Error al cargar carpeta ${folderPath}:`, error)
         }
     }
-    
     await loadFolder(commandsFolder)
     console.log(chalk.hex('#00FFFF')(`✓ Comandos cargados: ${Object.keys(global.plugins).length}`))
 }
@@ -334,28 +344,22 @@ loadCommandsFromFolders().then((_) => Object.keys(global.plugins)).catch(console
 async function _reloadCore(_ev, filename) {
     const commandsFolder = global.__dirname(join(__dirname, './src/commands'))
     const fullPath = global.__filename(join(__dirname, filename))
-    
     if (fullPath.startsWith(commandsFolder) && /\.js$/.test(filename)) {
         const dir = global.__filename(join(__dirname, filename), true)
         const pluginName = getRelativePluginName(dir)
-        
         if (existsSync(dir)) {
-            if (pluginName in global.plugins) {
-                console.log(chalk.white('ꕤ ') + chalk.hex('#00FFFF')('Cambio Realizado en') + chalk.white(`en "${pluginName}" `) + chalk.hex('#00FFFF')('con éxito.'))
-            } else {
-                 console.log(chalk.white('ꕤ ') + chalk.hex('#00FFFF')('Plugin Añadido ') + chalk.white(`"${pluginName}" `) + chalk.hex('#00FFFF')('con éxito.'))
-            }
-            
             const err = syntaxerror(readFileSync(dir), pluginName, {
                 sourceType: 'module',
                 allowAwaitOutsideFunction: true,
             })
-            
             if (err) {
                 conn.logger.error(`syntax error while loading '${pluginName}'\n${err}`)
             } else {
                 try {
                     const module = await import(`${global.__filename(dir)}?update=${Date.now()}`)
+                    if (pluginName in global.plugins) {
+                        console.log(chalk.white('ꕤ ') + chalk.hex('#00FFFF')('Cambio Realizado en ') + chalk.white(`"${pluginName}" `) + chalk.hex('#00FFFF')('con éxito.'))
+                    }
                     global.plugins[pluginName] = module.default || module
                 } catch (e) {
                     conn.logger.error(`error require plugin '${pluginName}'\n${e}`)
@@ -366,9 +370,7 @@ async function _reloadCore(_ev, filename) {
                 }
             }
         } else if (!existsSync(dir)) {
-
             if (pluginName in global.plugins) {
-                console.log(chalk.white('ꕤ ') + chalk.hex('#FF0000')('Plugin Eliminado ') + chalk.white(`"${pluginName}" `) + chalk.hex('#FF0000')('con éxito.'))
                 delete global.plugins[pluginName]
             }
         }
@@ -376,18 +378,15 @@ async function _reloadCore(_ev, filename) {
 }
 
 global.reload = debounce(_reloadCore, 100)
-
 Object.freeze(global.reload)
 
 function setupWatcher() {
     const commandsFolder = global.__dirname(join(__dirname, './src/commands'))
-    
     function watchFolder(folderPath) {
         watch(folderPath, (eventType, filename) => {
             if (filename) {
                 const fullPath = join(folderPath, filename)
                 const stat = existsSync(fullPath) ? statSync(fullPath) : null
-                
                 if (stat && stat.isDirectory()) {
                     watchFolder(fullPath)
                 } else {
@@ -396,7 +395,6 @@ function setupWatcher() {
                 }
             }
         })
-        
         try {
             const items = readdirSync(folderPath)
             for (const item of items) {
@@ -405,13 +403,9 @@ function setupWatcher() {
                     watchFolder(fullPath)
                 }
             }
-        } catch (error) {
-            console.error(`Error setting up watcher for ${folderPath}:`, error)
-        }
+        } catch (error) {}
     }
-    
     watchFolder(commandsFolder)
-    console.log(chalk.gray('→ Watcher configurado para carpeta commands y subcarpetas'))
 }
 
 setupWatcher()
@@ -420,10 +414,6 @@ await global.reloadHandler()
 if (!global.opts['test']) {
     if (global.db) setInterval(async () => {
         if (global.db.data) await global.db.write()
-        if (global.opts['autocleartmp'] && global.support?.find) {
-            const tmp = [join(__dirname, 'tmp'), join(__dirname, 'tmp'), join(__dirname, 'tmp', `${global.jadi}`)]
-            tmp.forEach((filename) => spawn('find', [filename, '-amin', '3', '-type', 'f', '-delete']))
-        }
     }, 30 * 1000)
 }
 
@@ -434,14 +424,16 @@ setInterval(async () => {
             const filenames = readdirSync(tmpDir)
             filenames.forEach(file => {
                 const filePath = join(tmpDir, file)
-                if (statSync(filePath).isFile() && !filePath.includes('Sessions') && !filePath.includes('sessions') && file !== 'config.json') {
-                    unlinkSync(filePath)
+                if (statSync(filePath).isFile()) {
+                    const isSession = filePath.toLowerCase().includes('session') || filePath.toLowerCase().includes('creds')
+                    if (!isSession && file !== 'config.json') {
+                        unlinkSync(filePath)
+                    }
                 }
             })
         }
-    } catch {
-    }
-}, 30 * 1000)
+    } catch {}
+}, 60 * 1000)
 
 async function _quickTest() {
     const test = await Promise.all([
@@ -473,11 +465,6 @@ _quickTest().catch(console.error)
 async function isValidPhoneNumber(number) {
     try {
         let num = String(number).replace(/\s+/g, '')
-        if (num.startsWith('+521')) {
-            num = num.replace('+521', '+52')
-        } else if (num.startsWith('+52') && num[4] === '1') {
-            num = num.replace('+52 1', '+52')
-        }
         const parsedNumber = phoneUtil.parseAndKeepRawInput(num)
         return phoneUtil.isValidNumber(parsedNumber)
     } catch (error) {
