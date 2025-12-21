@@ -63,10 +63,10 @@ if (methodCodeQR) {
 if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.json`)) {
     do {
         console.log('')
-        console.log(chalk.hex('#FFFFFF')('   ¿Cómo quieres conectar?'))
-        console.log(chalk.hex('#FFFFFF')('   ') + chalk.hex('#00FFFF')('1) ') + chalk.hex('#FFFFFF')('Usar código QR'))
-        console.log(chalk.hex('#FFFFFF')('   ') + chalk.hex('#00FFFF')('2) ') + chalk.hex('#FFFFFF')('Usar código de 8 dígitos'))
-        console.log(chalk.hex('#00FFFF')('   » Tu opción: '))
+        console.log(chalk.hex('#FFFFFF')('   Â¿CÃ³mo quieres conectar?'))
+        console.log(chalk.hex('#FFFFFF')('   ') + chalk.hex('#00FFFF')('1) ') + chalk.hex('#FFFFFF')('Usar cÃ³digo QR'))
+        console.log(chalk.hex('#FFFFFF')('   ') + chalk.hex('#00FFFF')('2) ') + chalk.hex('#FFFFFF')('Usar cÃ³digo de 8 dÃ­gitos'))
+        console.log(chalk.hex('#00FFFF')('   Â» Tu opciÃ³n: '))
         opcion = await question('')
         if (!/^[1-2]$/.test(opcion)) {
             console.log(chalk.red('   Solo opciones 1 o 2'))
@@ -129,7 +129,7 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
                 addNumber = String(phoneNumber).replace(/[^0-9]/g, '')
             } else {
                 do {
-                    console.log(chalk.hex('#00FFFF')('🐺 INGRESAR NÚMERO'))
+                    console.log(chalk.hex('#00FFFF')('ðŸº INGRESAR NÃšMERO'))
                     console.log(chalk.hex('#FFFFFF')('[+] '))
                     phoneNumber = await question('')
                     phoneNumber = String(phoneNumber).replace(/\D/g, '')
@@ -142,12 +142,12 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
                 setTimeout(async () => {
                     let codeBot = await conn.requestPairingCode(addNumber)
                     codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
-                    console.log(chalk.hex('#00FFFF')('🔐 CÓDIGO GENERADO'))
-                    console.log(chalk.hex('#00FFFF')('──────────────────────────'))
-                    console.log(chalk.hex('#FFFFFF')('╔══════════════════════╗'))
-                    console.log(chalk.hex('#FFFFFF')('║       ' + codeBot + '       ║'))
-                    console.log(chalk.hex('#FFFFFF')('╚══════════════════════╝'))
-                    console.log(chalk.hex('#00FFFF')('──────────────────────────'))
+                    console.log(chalk.hex('#00FFFF')('ðŸ” CÃ“DIGO GENERADO'))
+                    console.log(chalk.hex('#00FFFF')('â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€'))
+                    console.log(chalk.hex('#FFFFFF')('â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—'))
+                    console.log(chalk.hex('#FFFFFF')('â•‘       ' + codeBot + '       â•‘'))
+                    console.log(chalk.hex('#FFFFFF')('â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•'))
+                    console.log(chalk.hex('#00FFFF')('â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€'))
                 }, 1000)
             }
         }
@@ -155,9 +155,9 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
 }
 
 conn.isInit = false
-console.log(chalk.hex('#00FFFF')('╔══════════════════════════════╗'))
-console.log(chalk.hex('#00FFFF').bold('║         SHIROKO - LISTO        ║'))
-console.log(chalk.hex('#00FFFF')('╚══════════════════════════════╝'))
+console.log(chalk.hex('#00FFFF')('â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—'))
+console.log(chalk.hex('#00FFFF').bold('â•‘         SHIROKO - LISTO        â•‘'))
+console.log(chalk.hex('#00FFFF')('â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•'))
 
 async function connectionUpdate(update) {
     const { connection, lastDisconnect, isNewLogin } = update
@@ -174,14 +174,14 @@ async function connectionUpdate(update) {
     
     if (update.qr != 0 && update.qr != undefined || methodCodeQR) {
         if (opcion == '1' || methodCodeQR) {
-            console.log(chalk.hex('#FFFFFF')(`[ 青 ]  Escanea este código QR`))
+            console.log(chalk.hex('#FFFFFF')(`[ é’ ]  Escanea este cÃ³digo QR`))
         }
     }
     
     if (connection === "open") {
         const userName = conn.user.name || conn.user.verifiedName || "Desconocido"
         await joinChannels(conn)
-        console.log(chalk.hex('#00FFFF')('[ 青 ] ') + chalk.hex('#FFFFFF')(`Conectado a: ${userName}`))
+        console.log(chalk.hex('#00FFFF')('[ é’ ] ') + chalk.hex('#FFFFFF')(`Conectado a: ${userName}`))
 
         const rutaJadi = join(__dirname, `./${global.jadi}`)
         if (existsSync(rutaJadi)) {
@@ -229,7 +229,7 @@ async function connectionUpdate(update) {
         if (existsSync(restartFile)) {
             try {
                 const data = JSON.parse(readFileSync(restartFile))
-                await conn.sendMessage(data.chat, { text: 'ꕤ Reiniciado con éxito, nuevamente en línea.', edit: data.key })
+                await conn.sendMessage(data.chat, { text: 'ê•¤ Reiniciado con Ã©xito, nuevamente en lÃ­nea.', edit: data.key })
                 unlinkSync(restartFile)
             } catch (e) {}
         }
@@ -327,7 +327,7 @@ async function loadCommandsFromFolders() {
                         global.plugins[pluginName] = module.default || module
                     } catch (e) {
                         const pluginName = getRelativePluginName(fullPath)
-                        console.error(chalk.red(`✗ Error al cargar ${pluginName}: ${e.message}`))
+                        console.error(chalk.red(`âœ— Error al cargar ${pluginName}: ${e.message}`))
                     }
                 }
             }
@@ -336,7 +336,7 @@ async function loadCommandsFromFolders() {
         }
     }
     await loadFolder(commandsFolder)
-    console.log(chalk.hex('#00FFFF')(`✓ Comandos cargados: ${Object.keys(global.plugins).length}`))
+    console.log(chalk.hex('#00FFFF')(`âœ“ Comandos cargados: ${Object.keys(global.plugins).length}`))
 }
 
 loadCommandsFromFolders().then((_) => Object.keys(global.plugins)).catch(console.error)
@@ -358,7 +358,7 @@ async function _reloadCore(_ev, filename) {
                 try {
                     const module = await import(`${global.__filename(dir)}?update=${Date.now()}`)
                     if (pluginName in global.plugins) {
-                        console.log(chalk.white('ꕤ ') + chalk.hex('#00FFFF')('Cambio Realizado en ') + chalk.white(`"${pluginName}" `) + chalk.hex('#00FFFF')('con éxito.'))
+                        console.log(chalk.white('ê•¤ ') + chalk.hex('#00FFFF')('Cambio Realizado en ') + chalk.white(`"${pluginName}" `) + chalk.hex('#00FFFF')('con Ã©xito.'))
                     }
                     global.plugins[pluginName] = module.default || module
                 } catch (e) {
