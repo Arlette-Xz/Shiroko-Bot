@@ -45,8 +45,8 @@ await global.loadDatabase()
 
 const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
 
-const msgRetryCounterCache = new NodeCache({ stdTTL: 300, checkperiod: 120, useClones: false })
-const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 200, useClones: false })
+const msgRetryCounterCache = new NodeCache({ stdTTL: 30, checkperiod: 30, useClones: false })
+const userDevicesCache = new NodeCache({ stdTTL: 60, checkperiod: 60, useClones: false })
 
 const { version } = await fetchLatestBaileysVersion()
 let phoneNumber = global.botNumber
@@ -180,7 +180,7 @@ async function connectionUpdate(update) {
     if (connection === "open") {
         const userName = conn.user.name || conn.user.verifiedName || "Desconocido"
         await joinChannels(conn)
-        console.log(chalk.hex('#00FFFF')('[ 青 ] ') + chalk.hex('#FFFFFF')(`Conectado a: ${userName}`))
+        console.log(chalk.hex('#FFFFFF')('[ 青 ]  Conectado a: ') + chalk.hex('#00FFFF')(`${userName}`))
 
         const rutaJadi = join(__dirname, `./${global.jadi}`)
         if (existsSync(rutaJadi)) {
@@ -284,7 +284,7 @@ global.reloadHandler = async function (restatConn) {
         if (global.processedMessages && global.processedMessages.size > 500) {
             global.processedMessages.clear()
         }
-    }, 120000)
+    }, 30000)
 
     conn.ev.on('messages.upsert', conn.handler)
     conn.ev.on('connection.update', conn.connectionUpdate)
@@ -430,7 +430,7 @@ setInterval(async () => {
         }
     } catch {}
     if (global.gc) global.gc()
-}, 180000)
+}, 30000)
 
 async function _quickTest() {
     const test = await Promise.all([
