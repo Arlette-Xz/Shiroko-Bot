@@ -80,8 +80,8 @@ export async function shirokoJadiBot(options) {
         const { connection, lastDisconnect, qr } = update
         
         if (qr && fromCommand && !isSent) {
+            isSent = true 
             if (mcode) {
-                isSent = true 
                 try {
                     let secret = await sock.requestPairingCode((m.sender.split`@`[0]))
                     secret = secret.match(/.{1,4}/g)?.join("-")
@@ -91,7 +91,11 @@ export async function shirokoJadiBot(options) {
                     isSent = false
                 }
             } else {
-                await conn.sendMessage(m.chat, { image: await qrcode.toBuffer(qr, { scale: 8 }), caption: rtx }, { quoted: m })
+                try {
+                    await conn.sendMessage(m.chat, { image: await qrcode.toBuffer(qr, { scale: 8 }), caption: rtx }, { quoted: m })
+                } catch (e) {
+                    isSent = false
+                }
             }
         }
 
@@ -118,14 +122,19 @@ export async function shirokoJadiBot(options) {
             const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
             const botId = path.basename(pathshirokoJadiBot)
 
-            if (reason === DisconnectReason.loggedOut) {
-                console.log(chalk.hex('#00FFFF')(`[ SESIÓN FINALIZADA ] `) + chalk.hex('#FFFFFF')(`+${botId} Datos borrados.`))
-                try { fs.rmSync(pathshirokoJadiBot, { recursive: true, force: true }) } catch (e) {}
+            if (reason === DisconnectReason.loggedOut || reason === DisconnectReason.badSession || reason === 401) {
+                console.log(chalk.hex('#FF0000')(`[ SESIÓN FINALIZADA ] `) + chalk.hex('#FFFFFF')(`+${botId} Borrando datos...`))
+                try { 
+                    sock.ev.removeAllListeners()
+                    fs.rmSync(pathshirokoJadiBot, { recursive: true, force: true }) 
+                } catch (e) {}
                 let i = global.conns.indexOf(sock)
                 if (i >= 0) global.conns.splice(i, 1)
             } else {
                 sock.ev.removeAllListeners()
-                setTimeout(() => shirokoJadiBot(options), 10000)
+                if (reason !== DisconnectReason.connectionClosed) {
+                    setTimeout(() => shirokoJadiBot(options), 10000)
+                }
             }
         }
     }
