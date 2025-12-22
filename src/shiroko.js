@@ -1,4 +1,4 @@
-import { smsg } from "../lib/simple.js"
+Import { smsg } from "../lib/simple.js"
 import { format } from "util"
 import { fileURLToPath } from "url"
 import path, { join } from "path"
@@ -6,19 +6,15 @@ import fs, { unwatchFile, watchFile } from "fs"
 import chalk from "chalk"
 import fetch from "node-fetch"
 import ws from "ws"
-
 const { proto } = (await import("@whiskeysockets/baileys")).default
-
 const isNumber = x => typeof x === "number" && !isNaN(x)
 const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function () {
 clearTimeout(this)
 resolve()
 }, ms))
-
 const groupMetadataCache = new Map()
 const participantCache = new Map()
 const commandCache = new Map()
-
 export async function handler(chatUpdate) {
 this.msgqueque = this.msgqueque || []
 this.uptime = this.uptime || Date.now()
@@ -27,18 +23,15 @@ this.pushMessage(chatUpdate.messages).catch(console.error)
 let m = chatUpdate.messages[chatUpdate.messages.length - 1]
 if (!m) return
 if (global.db.data == null) await global.loadDatabase()
-
 try {
 m = smsg(this, m) || m
 if (!m) return
 if (m.isBaileys) return
 m.exp = 0
-
 try {
 const user = global.db.data.users[m.sender] || {}
 const chat = global.db.data.chats[m.chat] || {}
 const settings = global.db.data.settings[this.user.jid] || {}
-
 if (!global.db.data.users[m.sender]) {
 global.db.data.users[m.sender] = {
 name: m.name,
@@ -61,7 +54,6 @@ afk: -1,
 afkReason: "",
 warn: 0
 }}
-
 if (!global.db.data.chats[m.chat]) {
 global.db.data.chats[m.chat] = {
 isBanned: false,
@@ -77,7 +69,6 @@ nsfw: global.modes.nsfw,
 economy: global.modes.economy,
 gacha: global.modes.gacha
 }}
-
 if (!global.db.data.settings[this.user.jid]) {
 global.db.data.settings[this.user.jid] = {
 self: global.modes.self,
@@ -89,20 +80,18 @@ anticall: global.modes.anticall
 } catch (e) {
 console.error(e)
 }
-
 if (typeof m.text !== "string") m.text = ""
 const user = global.db.data.users[m.sender]
 const chat = global.db.data.chats[m.chat]
 const settings = global.db.data.settings[this.user.jid]
-const isROwner = global.owner.some(num => 
+const isROwner = global.owner.some(num =>
 num.replace(/[^0-9]/g, "") + "@s.whatsapp.net" === m.sender
 ) || m.fromMe
 const isOwner = isROwner
-const isPrems = isROwner || 
-global.prems.some(v => v.replace(/[^0-9]/g, "") + "@s.whatsapp.net" === m.sender) || 
+const isPrems = isROwner ||
+global.prems.some(v => v.replace(/[^0-9]/g, "") + "@s.whatsapp.net" === m.sender) ||
 user.premium
 const isOwners = [this.user.jid, ...global.owner.map(v => v + "@s.whatsapp.net")].includes(m.sender)
-
 if (opts["queque"] && m.text && !isPrems) {
 const queque = this.msgqueque
 const time = 1000 * 2
@@ -112,7 +101,6 @@ const index = queque.indexOf(m.id || m.key.id)
 if (index !== -1) queque.splice(index, 1)
 }, time)
 }
-
 m.exp += Math.ceil(Math.random() * 10)
 let usedPrefix
 let groupMetadata, participants, userGroup, botGroup
@@ -144,7 +132,6 @@ const isRAdmin = userGroup?.admin === "superadmin"
 const isAdmin = isRAdmin || userGroup?.admin === "admin"
 const isBotAdmin = botGroup?.admin || false
 const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), "./commands")
-
 for (const name in global.plugins) {
 const plugin = global.plugins[name]
 if (!plugin || plugin.disabled) continue
@@ -165,8 +152,8 @@ console.error(err)
 if (!opts["restrict"] && plugin.tags && plugin.tags.includes("admin")) {
 continue
 }
-const strRegex = (str) => str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&")
-const pluginPrefix = plugin.customPrefix || conn.prefix || global.prefix
+const strRegex = (str) => str.replace(/[|\{}()[]^+*?.]/g, "\\&")
+const pluginPrefix = plugin.customPrefix || this.prefix || global.prefix
 let match
 if (pluginPrefix instanceof RegExp) {
 match = [pluginPrefix.exec(m.text), pluginPrefix]
@@ -180,7 +167,7 @@ break
 }
 }
 } else {
-const prefixStr = typeof pluginPrefix === "string" ? prefix : ""
+const prefixStr = typeof pluginPrefix === "string" ? pluginPrefix : ""
 const regex = new RegExp(strRegex(prefixStr))
 match = [regex.exec(m.text), regex]
 }
@@ -207,7 +194,7 @@ settings
 })) continue
 }
 if (typeof plugin !== "function") continue
-if ((usedPrefix = (match[0] || "")[0])) {
+if (match && match[0] && (usedPrefix = match[0][0])) {
 const noPrefix = m.text.replace(usedPrefix, "")
 let [command, ...args] = noPrefix.trim().split(" ").filter(v => v)
 args = args || []
@@ -215,7 +202,7 @@ let _args = noPrefix.trim().split(" ").slice(1)
 let text = _args.join(" ")
 command = (command || "").toLowerCase()
 const fail = plugin.fail || global.dfail
-const cacheKey = `${name}_${command}`
+const cacheKey = ${name}_${command}
 let isAccept
 if (commandCache.has(cacheKey)) {
 isAccept = commandCache.get(cacheKey)
@@ -244,15 +231,14 @@ global.db.data.chats[m.chat].primaryBot = null
 if (!isAccept) continue
 m.plugin = name
 if (isAccept) { global.db.data.users[m.sender].commands = (global.db.data.users[m.sender].commands || 0) + 1 }
-
 if (chat) {
 const botId = this.user.jid
 const primaryBotId = chat.primaryBot
 if (name !== "group-banchat.js" && chat?.isBanned && !isAdmin && !isROwner) {
 if (!primaryBotId || primaryBotId === botId) {
 const aviso = global.msg.aviso
-.replace('${botname}', global.botname)
-.replace('${usedPrefix}', usedPrefix)
+.replace('{botname}', global.botname)
+.replace('{usedPrefix}', usedPrefix)
 await m.reply(aviso)
 return
 }}
@@ -263,8 +249,6 @@ if (!primaryBotId || primaryBotId === botId) {
 m.reply(mensaje)
 return
 }}}
-// --- FIN SECCIÓN SOLUCIONADA ---
-
 if (!isOwners && !m.chat.endsWith('g.us') && !/code|p|ping|qr|estado|status|infobot|botinfo|report|reportar|invite|join|logout|suggest|help|menu/gim.test(m.text)) return
 const adminMode = chat.modoadmin || false
 const wa = plugin.botAdmin || plugin.admin || plugin.group || plugin || noPrefix || pluginPrefix || m.text.slice(0, 1) === pluginPrefix || plugin.command
@@ -358,12 +342,10 @@ if (!opts["noprint"]) await (await import("../lib/print.js")).default(m, this)
 console.warn(err)
 console.log(m.message)
 }}}
-
 global.dfail = (type, m, conn) => {
 const msg = global.msg[type]
 if (msg) return conn.reply(m.chat, msg.replace('${comando}', global.comando), m, rcanal).then(_ => m.react('✖️'))
 }
-
 let file = global.__filename(import.meta.url, true)
 watchFile(file, async () => {
 unwatchFile(file)
