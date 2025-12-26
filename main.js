@@ -233,7 +233,7 @@ async function connectionUpdate(update) {
         if ([401, 440, 428, 405].includes(reason)) {
             console.log(chalk.red(`→ (${code}) › Cierra la session Principal.`))
         }
-        console.log(chalk.yellow("→ Reconectando el Bot Principal..."))
+        console.log(chalk.white("→ Reconectando el Bot Principal..."))
         await global.reloadHandler(true).catch(console.error)
     }
 }
