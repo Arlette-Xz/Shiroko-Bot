@@ -282,8 +282,8 @@ if (!existsSync(tmpDirCheck)) mkdirSync(tmpDirCheck, { recursive: true })
 await global.loadDatabase()
 
 const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
-const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
-const userDevicesCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
+const msgRetryCounterCache = new NodeCache({ stdTTL: 120, checkperiod: 60 })
+const userDevicesCache = new NodeCache({ stdTTL: 120, checkperiod: 60 })
 const { version } = await fetchLatestBaileysVersion()
 let phoneNumber = global.botNumber
 const methodCodeQR = process.argv.includes("qr")
@@ -315,13 +315,13 @@ const connectionOptions = {
     logger: pino({ level: 'silent' }),
     printQRInTerminal: opcion == '1' ? true : methodCodeQR ? true : false,
     mobile: MethodMobile,
-    browser: ["Ubuntu", "Chrome", "118.0.0.0"],
+    browser: ["Linux", "Chrome", "120.0.0.0", "Headless"],
     auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
     },
-    markOnlineOnConnect: false,
-    generateHighQualityLinkPreview: false,
+    markOnlineOnConnect: true,
+    generateHighQualityLinkPreview: true,
     syncFullHistory: false,
     getMessage: async (key) => {
         try {
@@ -332,20 +332,53 @@ const connectionOptions = {
     },
     msgRetryCounterCache: msgRetryCounterCache,
     userDevicesCache: userDevicesCache,
-    defaultQueryTimeoutMs: 5000,
+    defaultQueryTimeoutMs: 2000,
     cachedGroupMetadata: (jid) => global.conn?.chats?.[jid] ?? {},
     version: version,
-    keepAliveIntervalMs: 8000,
-    maxIdleTimeMs: 12000,
-    connectTimeoutMs: 10000,
-    fireInitQueries: false,
-    txnUpdateTimeoutMs: 3000,
-    retryRequestDelayMs: 50,
+    keepAliveIntervalMs: 4000,
+    maxIdleTimeMs: 8000,
+    connectTimeoutMs: 6000,
+    fireInitQueries: true,
+    txnUpdateTimeoutMs: 1000,
+    retryRequestDelayMs: 20,
     maxMsgRetryCount: 2,
     shouldIgnoreJid: (jid) => false,
     appStateMacVerification: { patch: false, snapshot: false },
     validateFingerprint: false,
-    connectionStrategy: 'balanced'
+    connectionStrategy: 'light',
+    patchMessageBeforeSending: (message) => {
+        if (message.buttonsMessage) delete message.buttonsMessage;
+        if (message.listMessage) delete message.listMessage;
+        if (message.templateMessage) delete message.templateMessage;
+        return message;
+    },
+    downloadHistory: false,
+    linkPreviewImageThumbnailWidth: 128,
+    transactionOpts: { maxCommitRetries: 1, delayBetweenTriesMs: 300 },
+    emitOwnEvents: false,
+    defaultCacheExpiration: 30000,
+    maxCachedMessages: 50,
+    wsOptions: {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Connection': 'Upgrade',
+            'Upgrade': 'websocket'
+        },
+        maxPayload: 1048576,
+        perMessageDeflate: false
+    },
+    fetchMessageMaxAttempts: 2,
+    queryChatsTillReceived: false,
+    emitPresenceUpdates: false,
+    emitGroupParticipantsUpdate: false,
+    emitGroupMetadataUpdate: false,
+    emitChatUpdate: false,
+    emitMessageUpdate: false,
+    emitUnreadMessagesUpdate: false,
+    emitUnreadCountsUpdate: false
 }
 
 global.conn = makeWASocket(connectionOptions)
@@ -400,7 +433,7 @@ if (global.shirokoJadibts) {
     }
     const readRutaJadiBot = readdirSync(global.rutaJadiBot)
     if (readRutaJadiBot.length > 0) {
-        console.log(chalk.gray(`→ Detectadas ${readRutaJadiBot.length} sesiones. Iniciando reconexión...`))
+        console.log(chalk.white(`→ Iniciando reconexión de Sub-Bots...`))
         for (const gjbts of readRutaJadiBot) {
             const botPath = join(global.rutaJadiBot, gjbts)
             if (existsSync(botPath) && statSync(botPath).isDirectory()) {
@@ -410,7 +443,7 @@ if (global.shirokoJadibts) {
                         try {
                             await shirokoJadiBot({ 
                                 pathshirokoJadiBot: botPath, 
-                                m: { sender: gjbts + '@s.whatsapp.net', chat: gjbts + '@s.whatsapp.net' }, 
+                                m: null, 
                                 conn: global.conn, 
                                 args: [], 
                                 usedPrefix: '/', 
@@ -418,7 +451,7 @@ if (global.shirokoJadibts) {
                                 fromCommand: false 
                             })
                         } catch (e) {}
-                    }, 10000)
+                    }, 5000)
                 }
             }
         }
@@ -432,7 +465,7 @@ if (!global.opts['test']) {
             const tmp = [join(__dirname, 'tmp'), join(__dirname, 'tmp'), join(__dirname, 'tmp', `${global.jadi}`)]
             tmp.forEach((filename) => spawn('find', [filename, '-amin', '3', '-type', 'f', '-delete']))
         }
-    }, 30 * 1000)
+    }, 60 * 1000)
 }
 
 setInterval(async () => {
