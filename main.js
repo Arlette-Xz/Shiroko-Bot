@@ -400,7 +400,7 @@ if (global.shirokoJadibts) {
     }
     const readRutaJadiBot = readdirSync(global.rutaJadiBot)
     if (readRutaJadiBot.length > 0) {
-        console.log(chalk.white(`→ Iniciando reconexión de Sub-Bots...`))
+        console.log(chalk.gray(`→ Detectadas ${readRutaJadiBot.length} sesiones. Iniciando reconexión...`))
         for (const gjbts of readRutaJadiBot) {
             const botPath = join(global.rutaJadiBot, gjbts)
             if (existsSync(botPath) && statSync(botPath).isDirectory()) {
@@ -410,7 +410,7 @@ if (global.shirokoJadibts) {
                         try {
                             await shirokoJadiBot({ 
                                 pathshirokoJadiBot: botPath, 
-                                m: null, 
+                                m: { sender: gjbts + '@s.whatsapp.net', chat: gjbts + '@s.whatsapp.net' }, 
                                 conn: global.conn, 
                                 args: [], 
                                 usedPrefix: '/', 
@@ -418,7 +418,7 @@ if (global.shirokoJadibts) {
                                 fromCommand: false 
                             })
                         } catch (e) {}
-                    }, 5000)
+                    }, 10000)
                 }
             }
         }
