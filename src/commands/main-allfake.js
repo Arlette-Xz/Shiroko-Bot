@@ -11,18 +11,20 @@ handler.all = async function (m) {
     global.tiempo = d.toLocaleString('en-US', {hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true})
 
     global.nombre = m.pushName || 'Usuario'
-    global.packsticker = `┊ Shiroko Team\n⤷ https://github.com/speed3xz\n\n┊INFO\n ⤷ speed3xz.bot.nu/discord`
+    global.packsticker = `┊ Shiroko Team\n⤷ https://github.com/Arlette-Xz\n\n┊INFO\n ⤷ speed3xz.bot.nu/soporte`
     global.packsticker2 = `┊Bot\n┊⤷${global.botname} \n\n┊Usuario:\n┊⤷${nombre}`
     
+    const canalConfig = {
+        newsletterJid: global.idchannel,
+        serverMessageId: Math.floor(Math.random() * 1000),
+        newsletterName: global.namechannel
+    }
+
     global.rcanal = {
         contextInfo: {
             isForwarded: true,
             forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: global.idchannel,
-                serverMessageId: Math.floor(Math.random() * 1000),
-                newsletterName: global.namechannel
-            }
+            forwardedNewsletterMessageInfo: canalConfig
         }
     }
 
@@ -30,48 +32,30 @@ handler.all = async function (m) {
         contextInfo: {
             isForwarded: true,
             forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: global.idchannel,
-                serverMessageId: Math.floor(Math.random() * 1000),
-                newsletterName: global.namechannel
-            },
+            forwardedNewsletterMessageInfo: canalConfig,
             externalAdReply: {
                 title: global.namechannel,
                 body: '',
                 thumbnail: global.icono,
                 mediaType: 1,
-                sourceUrl: global.channel
+                sourceUrl: null
             }
         }
     }
 
-    global.rcanalden2 = {
-        contextInfo: {
-            isForwarded: true,
-            forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: global.idchannel,
-                serverMessageId: Math.floor(Math.random() * 1000),
-                newsletterName: global.namechannel
-            }
-        }
-    }
+    global.rcanalden2 = global.rcanal
 
     global.rcanalx = {
         contextInfo: {
             isForwarded: true,
             forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: global.idchannel,
-                serverMessageId: Math.floor(Math.random() * 1000),
-                newsletterName: global.namechannel
-            },
+            forwardedNewsletterMessageInfo: canalConfig,
             externalAdReply: {
                 title: global.namechannel,
                 body: '',
                 thumbnail: global.icono,
                 mediaType: 1,
-                sourceUrl: global.channel
+                sourceUrl: null
             }
         }
     }
@@ -80,17 +64,13 @@ handler.all = async function (m) {
         contextInfo: {
             isForwarded: true,
             forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: global.idchannel,
-                serverMessageId: Math.floor(Math.random() * 1000),
-                newsletterName: global.namechannel
-            },
+            forwardedNewsletterMessageInfo: canalConfig,
             externalAdReply: {
                 title: global.namechannel,
                 body: '',
                 thumbnail: global.icono,
                 mediaType: 1,
-                sourceUrl: global.channel
+                sourceUrl: null
             }
         }
     }
@@ -99,16 +79,13 @@ handler.all = async function (m) {
         contextInfo: {
             isForwarded: true,
             forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: global.idchannel,
-                serverMessageId: Math.floor(Math.random() * 1000),
-                newsletterName: global.namechannel
-            },
+            forwardedNewsletterMessageInfo: canalConfig,
             externalAdReply: {
                 title: '🔓 Acceso No Permitido',
                 body: '',
                 thumbnail: global.icono,
-                mediaType: 1
+                mediaType: 1,
+                sourceUrl: null
             }
         }
     }
@@ -117,16 +94,13 @@ handler.all = async function (m) {
         contextInfo: {
             isForwarded: true,
             forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: global.idchannel,
-                serverMessageId: Math.floor(Math.random() * 1000),
-                newsletterName: global.namechannel
-            },
+            forwardedNewsletterMessageInfo: canalConfig,
             externalAdReply: {
                 title: '🛠️ Dev',
                 body: '',
                 thumbnail: global.icono,
-                mediaType: 1
+                mediaType: 1,
+                sourceUrl: null
             }
         }
     }
