@@ -95,7 +95,6 @@ function getRelativePluginName(filePath) {
 async function loadCommandsFromFolders() {
     const commandsFolder = global.__dirname(join(__dirname, './src/commands'))
     global.plugins = {}
-    
     async function loadFolder(folderPath, basePath = commandsFolder) {
         try {
             const items = readdirSync(folderPath)
@@ -195,7 +194,6 @@ function setupWatcher() {
         }
     }
     watchFolder(commandsFolder)
-    console.log(chalk.gray('→ Watcher configurado para carpeta commands y subcarpetas'))
 }
 
 async function connectionUpdate(update) {
@@ -399,17 +397,16 @@ global.rutaJadiBot = join(__dirname, `./${global.jadi}`)
 if (global.shirokoJadibts) {
     if (!existsSync(global.rutaJadiBot)) {
         mkdirSync(global.rutaJadiBot, { recursive: true })
-        console.log(chalk.white(`ꕥ La carpeta: ${global.jadi} se creó correctamente.`))
     }
     const readRutaJadiBot = readdirSync(global.rutaJadiBot)
     if (readRutaJadiBot.length > 0) {
-        const creds = 'creds.json'
         for (const gjbts of readRutaJadiBot) {
             const botPath = join(global.rutaJadiBot, gjbts)
             if (existsSync(botPath) && statSync(botPath).isDirectory()) {
-                const readBotPath = readdirSync(botPath)
-                if (readBotPath.includes(creds)) {
-                    shirokoJadiBot({ pathshirokoJadiBot: botPath, m: null, conn, args: '', usedPrefix: '/', command: 'code' })
+                if (readdirSync(botPath).includes('creds.json')) {
+                    setTimeout(() => {
+                        shirokoJadiBot({ pathshirokoJadiBot: botPath, m: null, conn: global.conn, args: [], usedPrefix: '/', command: 'code', fromCommand: false })
+                    }, 5000)
                 }
             }
         }
