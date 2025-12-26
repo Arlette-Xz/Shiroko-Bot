@@ -36,266 +36,55 @@ if (typeof protoType === 'function') protoType();
 if (typeof serialize === 'function') serialize();
 
 const __dirname = global.__dirname(import.meta.url)
-const tmpDir = join(__dirname, 'tmp')
-if (!existsSync(tmpDir)) {
-    mkdirSync(tmpDir, { recursive: true })
-}
 
-await global.loadDatabase()
-
-const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
-
-const msgRetryCounterCache = new NodeCache({ stdTTL: 30, checkperiod: 30, useClones: false })
-const userDevicesCache = new NodeCache({ stdTTL: 60, checkperiod: 60, useClones: false })
-
-const { version } = await fetchLatestBaileysVersion()
-let phoneNumber = global.botNumber
-const methodCodeQR = process.argv.includes("qr")
-const methodCode = !!phoneNumber || process.argv.includes("code")
-const MethodMobile = process.argv.includes("mobile")
-
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-const question = (texto) => new Promise((resolver) => rl.question(texto, resolver))
-let opcion
-
-if (methodCodeQR) {
-    opcion = '1'
-}
-
-if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.json`)) {
-    do {
-        console.log('')
-        console.log(chalk.hex('#FFFFFF')('   ¿Cómo quieres conectar?'))
-        console.log(chalk.hex('#FFFFFF')('   ') + chalk.hex('#00FFFF')('1) ') + chalk.hex('#FFFFFF')('Usar código QR'))
-        console.log(chalk.hex('#FFFFFF')('   ') + chalk.hex('#00FFFF')('2) ') + chalk.hex('#FFFFFF')('Usar código de 8 dígitos'))
-        console.log(chalk.hex('#00FFFF')('   » Tu opción: '))
-        opcion = await question('')
-        if (!/^[1-2]$/.test(opcion)) {
-            console.log(chalk.red('   Solo opciones 1 o 2'))
-        }
-    } while (opcion !== '1' && opcion !== '2' || fs.existsSync(`./${global.sessions}/creds.json`))
-}
-console.info = () => {}
-
-const connectionOptions = {
-    logger: pino({ level: 'silent' }),
-    printQRInTerminal: opcion == '1' ? true : methodCodeQR ? true : false,
-    mobile: MethodMobile,
-    browser: ["Ubuntu", "Chrome", "118.0.0.0"],
-    auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
-    },
-    markOnlineOnConnect: false,
-    generateHighQualityLinkPreview: false,
-    syncFullHistory: false,
-    getMessage: async (key) => {
-        try {
-            let jid = jidNormalizedUser(key.remoteJid)
-            let msg = await store.loadMessage(jid, key.id)
-            return msg?.message || ""
-        } catch (error) {
-            return ""
-        }
-    },
-    msgRetryCounterCache: msgRetryCounterCache,
-    userDevicesCache: userDevicesCache,
-    defaultQueryTimeoutMs: 8000,
-    cachedGroupMetadata: (jid) => global.conn?.chats?.[jid] ?? {},
-    version: version,
-    keepAliveIntervalMs: 10000,
-    maxIdleTimeMs: 15000,
-    connectTimeoutMs: 15000,
-    fireInitQueries: false,
-    shouldIgnoreJid: (jid) => jid.endsWith('@broadcast'),
-    appStateMacVerification: {
-        patch: false,
-        snapshot: false
-    },
-    validateFingerprint: false,
-    connectionStrategy: 'balanced'
-}
-
-global.conn = makeWASocket(connectionOptions)
-conn.ev.on("creds.update", saveCreds)
-
-if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
-    if (opcion === '2' || methodCode) {
-        opcion = '2'
-        if (!conn.authState.creds.registered) {
-            let addNumber
-            if (!!phoneNumber) {
-                addNumber = String(phoneNumber).replace(/[^0-9]/g, '')
-            } else {
-                do {
-                    console.log(chalk.hex('#00FFFF')('🐺 INGRESAR NÚMERO'))
-                    console.log(chalk.hex('#FFFFFF')('[+] '))
-                    phoneNumber = await question('')
-                    phoneNumber = String(phoneNumber).replace(/\D/g, '')
-                    if (!phoneNumber.startsWith('+')) {
-                        phoneNumber = `+${phoneNumber}`
-                    }
-                } while (!await isValidPhoneNumber(phoneNumber))
-                rl.close()
-                addNumber = phoneNumber.replace(/\D/g, '')
-                setTimeout(async () => {
-                    let codeBot = await conn.requestPairingCode(addNumber)
-                    codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
-                    console.log(chalk.hex('#00FFFF')('🔐 CÓDIGO GENERADO'))
-                    console.log(chalk.hex('#00FFFF')('──────────────────────────'))
-                    console.log(chalk.hex('#FFFFFF')('╔══════════════════════╗'))
-                    console.log(chalk.hex('#FFFFFF')('║       ' + codeBot + '       ║'))
-                    console.log(chalk.hex('#FFFFFF')('╚══════════════════════╝'))
-                    console.log(chalk.hex('#00FFFF')('──────────────────────────'))
-                }, 1000)
-            }
-        }
-    }
-}
-
-conn.isInit = false
-console.log(chalk.hex('#00FFFF')('╔══════════════════════════════╗'))
-console.log(chalk.hex('#00FFFF').bold('║         SHIROKO - LISTO        ║'))
-console.log(chalk.hex('#00FFFF')('╚══════════════════════════════╝'))
-
-async function connectionUpdate(update) {
-    const { connection, lastDisconnect, isNewLogin } = update
-    global.stopped = connection
-    if (isNewLogin) conn.isInit = true
-    const code = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode
-    
-    if (code && code !== DisconnectReason.loggedOut && conn?.ws.socket == null) {
-        await global.reloadHandler(true).catch(console.error)
-        global.timestamp.connect = new Date()
-    }
-    
-    if (global.db.data == null) global.loadDatabase()
-    
-    if (update.qr != 0 && update.qr != undefined || methodCodeQR) {
-        if (opcion == '1' || methodCodeQR) {
-            console.log(chalk.hex('#FFFFFF')(`[ 青 ]  Escanea este código QR`))
-        }
-    }
-    
-    if (connection === "open") {
-        const userName = conn.user.name || conn.user.verifiedName || "Desconocido"
-        await joinChannels(conn)
-        console.log(chalk.hex('#FFFFFF')('[ 青 ]  Conectado a: ') + chalk.hex('#00FFFF')(`${userName}`))
-
-        const rutaJadi = join(__dirname, `./${global.jadi}`)
-        if (existsSync(rutaJadi)) {
-            const folders = readdirSync(rutaJadi).filter(f => {
-                const p = join(rutaJadi, f)
-                return statSync(p).isDirectory() && existsSync(join(p, 'creds.json'))
-            })
-            
-            if (folders.length > 0) {
-                for (const folder of folders) {
-                    const pathBot = join(rutaJadi, folder)
-                    const runJadi = async () => {
-                        try {
-                            const sbot = await shirokoJadiBot({ 
-                                pathshirokoJadiBot: pathBot, 
-                                conn, 
-                                m: null, 
-                                args: [], 
-                                usedPrefix: '/', 
-                                command: 'serbot',
-                                fromCommand: false
-                            })
-                            
-                            if (sbot && sbot.ev) {
-                                sbot.ev.on('connection.update', async (sUpdate) => {
-                                    const { connection: sConn, lastDisconnect: sLast } = sUpdate
-                                    if (sConn === 'close') {
-                                        const sCode = new Boom(sLast?.error)?.output?.statusCode
-                                        if (sCode !== DisconnectReason.loggedOut) {
-                                            await new Promise(r => setTimeout(r, 10000))
-                                            runJadi()
-                                        }
-                                    }
-                                })
-                            }
-                        } catch (e) {}
-                    }
-                    await runJadi()
-                    await new Promise(r => setTimeout(r, 5000))
-                }
-            }
-        }
-
-        const restartFile = join(__dirname, './src/json/restart.json')
-        if (existsSync(restartFile)) {
-            try {
-                const data = JSON.parse(readFileSync(restartFile))
-                await conn.sendMessage(data.chat, { text: 'ꕤ Reiniciado con éxito, nuevamente en línea.', edit: data.key })
-                unlinkSync(restartFile)
-            } catch (e) {}
-        }
-    }
-    
-    let reason = new Boom(lastDisconnect?.error)?.output?.statusCode
-    if (connection === "close") {
-        if (reason !== DisconnectReason.loggedOut) {
-            await global.reloadHandler(true).catch(console.error)
-        }
-    }
-}
-
-process.on('uncaughtException', console.error)
-let isInit = true
-let handler = await import('./src/shiroko.js')
-
-global.reloadHandler = async function (restatConn) {
+async function isValidPhoneNumber(number) {
     try {
-        const Handler = await import(`./src/shiroko.js?update=${Date.now()}`).catch(console.error)
-        if (Object.keys(Handler || {}).length) {
-            handler = Handler
-            if (global.processedMessages) {
-                global.processedMessages.clear()
-            }
+        let num = String(number).replace(/\s+/g, '')
+        if (num.startsWith('+521')) {
+            num = num.replace('+521', '+52')
+        } else if (num.startsWith('+52') && num[4] === '1') {
+            num = num.replace('+52 1', '+52')
         }
-    } catch (e) {
-        console.error(e)
+        const parsedNumber = phoneUtil.parseAndKeepRawInput(num)
+        return phoneUtil.isValidNumber(parsedNumber)
+    } catch (error) {
+        return false
     }
-    
-    if (restatConn) {
-        try { global.conn.ws.close() } catch { }
-        conn.ev.removeAllListeners()
-        global.conn = makeWASocket(connectionOptions)
-        isInit = true
-    }
-    
-    if (!isInit) {
-        conn.ev.off('messages.upsert', conn.handler)
-        conn.ev.off('connection.update', conn.connectionUpdate)
-        conn.ev.off('creds.update', conn.credsUpdate)
-    }
-
-    conn.handler = handler.handler.bind(global.conn)
-    conn.connectionUpdate = connectionUpdate.bind(global.conn)
-    conn.credsUpdate = saveCreds.bind(global.conn, true)
-
-    if (!global.processedMessages) {
-        global.processedMessages = new Set()
-    }
-
-    setInterval(() => {
-        if (global.processedMessages && global.processedMessages.size > 500) {
-            global.processedMessages.clear()
-        }
-    }, 30000)
-
-    conn.ev.on('messages.upsert', conn.handler)
-    conn.ev.on('connection.update', conn.connectionUpdate)
-    conn.ev.on('creds.update', conn.credsUpdate)
-    isInit = false
-    return true
 }
 
-process.on('unhandledRejection', (reason, promise) => {
-    console.error("Rechazo no manejado detectado:", reason)
-})
+async function joinChannels(sock) {
+    for (const value of Object.values(global.ch || {})) {
+        if (typeof value === 'string' && value.endsWith('@newsletter')) {
+            await sock.newsletterFollow(value).catch(() => {})
+        }
+    }
+}
+
+async function _quickTest() {
+    const test = await Promise.all([
+        spawn('ffmpeg'),
+        spawn('ffprobe'),
+        spawn('ffmpeg', ['-hidebanner', '-loglevel', 'error', '-filter_complex', 'color', '-frames:v', '1', '-f', 'webp', '-']),
+        spawn('convert'),
+        spawn('magick'),
+        spawn('gm'),
+        spawn('find', ['--version']),
+    ].map((p) => {
+        return Promise.race([
+            new Promise((resolve) => {
+                p.on('close', (code) => {
+                    resolve(code !== 127)
+                })
+            }),
+            new Promise((resolve) => {
+                p.on('error', (_) => resolve(false))
+            })
+        ])
+    }))
+    const [ffmpeg, ffprobe, ffmpegWebp, convert, magick, gm, find] = test
+    const s = global.support = { ffmpeg, ffprobe, ffmpegWebp, convert, magick, gm, find }
+    Object.freeze(global.support)
+}
 
 function getRelativePluginName(filePath) {
     const commandsFolder = global.__dirname(join(__dirname, './src/commands'))
@@ -324,6 +113,7 @@ async function loadCommandsFromFolders() {
                     } catch (e) {
                         const pluginName = getRelativePluginName(fullPath)
                         console.error(chalk.red(`✗ Error al cargar ${pluginName}: ${e.message}`))
+                        delete global.plugins[getRelativePluginName(fullPath)]
                     }
                 }
             }
@@ -335,8 +125,6 @@ async function loadCommandsFromFolders() {
     console.log(chalk.hex('#00FFFF')(`✓ Comandos cargados: ${Object.keys(global.plugins).length}`))
 }
 
-loadCommandsFromFolders().then((_) => Object.keys(global.plugins)).catch(console.error)
-
 async function _reloadCore(_ev, filename) {
     const commandsFolder = global.__dirname(join(__dirname, './src/commands'))
     const fullPath = global.__filename(join(__dirname, filename))
@@ -344,6 +132,11 @@ async function _reloadCore(_ev, filename) {
         const dir = global.__filename(join(__dirname, filename), true)
         const pluginName = getRelativePluginName(dir)
         if (existsSync(dir)) {
+            if (pluginName in global.plugins) {
+                console.log(chalk.white('ꕤ ') + chalk.hex('#00FFFF')('Cambio Realizado en') + chalk.white(`en "${pluginName}" `) + chalk.hex('#00FFFF')('con éxito.'))
+            } else {
+                 console.log(chalk.white('ꕤ ') + chalk.hex('#00FFFF')('Plugin Añadido ') + chalk.white(`"${pluginName}" `) + chalk.hex('#00FFFF')('con éxito.'))
+            }
             const err = syntaxerror(readFileSync(dir), pluginName, {
                 sourceType: 'module',
                 allowAwaitOutsideFunction: true,
@@ -353,9 +146,6 @@ async function _reloadCore(_ev, filename) {
             } else {
                 try {
                     const module = await import(`${global.__filename(dir)}?update=${Date.now()}`)
-                    if (pluginName in global.plugins) {
-                        console.log(chalk.white('ꕤ ') + chalk.hex('#00FFFF')('Cambio Realizado en ') + chalk.white(`"${pluginName}" `) + chalk.hex('#00FFFF')('con éxito.'))
-                    }
                     global.plugins[pluginName] = module.default || module
                 } catch (e) {
                     conn.logger.error(`error require plugin '${pluginName}'\n${e}`)
@@ -367,6 +157,7 @@ async function _reloadCore(_ev, filename) {
             }
         } else if (!existsSync(dir)) {
             if (pluginName in global.plugins) {
+                console.log(chalk.white('ꕤ ') + chalk.hex('#FF0000')('Plugin Eliminado ') + chalk.white(`"${pluginName}" `) + chalk.hex('#FF0000')('con éxito.'))
                 delete global.plugins[pluginName]
             }
         }
@@ -399,85 +190,263 @@ function setupWatcher() {
                     watchFolder(fullPath)
                 }
             }
-        } catch (error) {}
+        } catch (error) {
+            console.error(`Error set up watcher for ${folderPath}:`, error)
+        }
     }
     watchFolder(commandsFolder)
+    console.log(chalk.gray('→ Watcher configurado para carpeta commands y subcarpetas'))
 }
 
-setupWatcher()
-await global.reloadHandler()
+async function connectionUpdate(update) {
+    const { connection, lastDisconnect, isNewLogin } = update
+    global.stopped = connection
+    if (isNewLogin) conn.isInit = true
+    const code = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode
+    if (code && code !== DisconnectReason.loggedOut && conn?.ws.socket == null) {
+        await global.reloadHandler(true).catch(console.error)
+        global.timestamp.connect = new Date()
+    }
+    if (global.db.data == null) global.loadDatabase()
+    if (update.qr != 0 && update.qr != undefined || methodCodeQR) {
+        if (opcion == '1' || methodCodeQR) {
+            console.log(chalk.white(`[ 青 ]  Escanea este código QR`))
+        }
+    }
+    if (connection === "open") {
+        const userName = conn.user.name || conn.user.verifiedName || "Desconocido"
+        await joinChannels(conn)
+        console.log(chalk.white(`[ 青 ]  Conectado a: ${userName}`))
+        const restartFile = join(__dirname, './src/json/restart.json')
+        if (existsSync(restartFile)) {
+            try {
+                const data = JSON.parse(readFileSync(restartFile))
+                await conn.sendMessage(data.chat, { text: 'ꕤ Reiniciado con éxito, nuevamente en línea.', edit: data.key })
+                unlinkSync(restartFile)
+            } catch (e) {
+                console.error('Error al editar mensaje de reinicio:', e)
+            }
+        }
+    }
+    let reason = new Boom(lastDisconnect?.error)?.output?.statusCode
+    if (connection === "close") {
+        if ([401, 440, 428, 405].includes(reason)) {
+            console.log(chalk.red(`→ (${code}) › Cierra la session Principal.`))
+        }
+        console.log(chalk.yellow("→ Reconectando el Bot Principal..."))
+        await global.reloadHandler(true).catch(console.error)
+    }
+}
+
+global.reloadHandler = async function (restatConn) {
+    try {
+        const Handler = await import(`./src/shiroko.js?update=${Date.now()}`).catch(console.error)
+        if (Object.keys(Handler || {}).length) {
+            handler = Handler
+            if (global.processedMessages) {
+                global.processedMessages.clear()
+            }
+        }
+    } catch (e) { console.error(e) }
+    if (restatConn) {
+        const oldChats = global.conn.chats
+        try { global.conn.ws.close() } catch { }
+        conn.ev.removeAllListeners()
+        global.conn = makeWASocket(connectionOptions, { chats: oldChats })
+        isInit = true
+    }
+    if (!isInit) {
+        conn.ev.off('messages.upsert', conn.handler)
+        conn.ev.off('connection.update', conn.connectionUpdate)
+        conn.ev.off('creds.update', conn.credsUpdate)
+    }
+    conn.handler = handler.handler.bind(global.conn)
+    conn.connectionUpdate = connectionUpdate.bind(global.conn)
+    conn.credsUpdate = saveCreds.bind(global.conn, true)
+    if (!global.processedMessages) {
+        global.processedMessages = new Set()
+    }
+    setInterval(() => {
+        if (global.processedMessages && global.processedMessages.size > 1000) {
+            global.processedMessages.clear()
+        }
+    }, 60000)
+    conn.ev.on('messages.upsert', conn.handler)
+    conn.ev.on('connection.update', conn.connectionUpdate)
+    conn.ev.on('creds.update', conn.credsUpdate)
+    isInit = false
+    return true
+}
+
+const tmpDirCheck = join(__dirname, 'tmp')
+if (!existsSync(tmpDirCheck)) mkdirSync(tmpDirCheck, { recursive: true })
+
+await global.loadDatabase()
+
+const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
+const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
+const userDevicesCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
+const { version } = await fetchLatestBaileysVersion()
+let phoneNumber = global.botNumber
+const methodCodeQR = process.argv.includes("qr")
+const methodCode = !!phoneNumber || process.argv.includes("code")
+const MethodMobile = process.argv.includes("mobile")
+
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+const question = (texto) => new Promise((resolver) => rl.question(texto, resolver))
+let opcion
+
+if (methodCodeQR) opcion = '1'
+
+if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.json`)) {
+    do {
+        console.log('')
+        console.log(chalk.white('   ¿Cómo quieres conectar?'))
+        console.log(chalk.white('   ') + chalk.hex('#00FFFF')('1) ') + chalk.white('Usar código QR'))
+        console.log(chalk.white('   ') + chalk.hex('#00FFFF')('2) ') + chalk.white('Usar código de 8 dígitos'))
+        console.log(chalk.white('   » Tu opción: '))
+        opcion = await question('')
+        if (!/^[1-2]$/.test(opcion)) {
+            console.log(chalk.red('   Solo opciones 1 o 2'))
+        }
+    } while (opcion !== '1' && opcion !== '2' || fs.existsSync(`./${global.sessions}/creds.json`))
+}
+console.info = () => {}
+
+const connectionOptions = {
+    logger: pino({ level: 'silent' }),
+    printQRInTerminal: opcion == '1' ? true : methodCodeQR ? true : false,
+    mobile: MethodMobile,
+    browser: ["Ubuntu", "Chrome", "118.0.0.0"],
+    auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
+    },
+    markOnlineOnConnect: false,
+    generateHighQualityLinkPreview: false,
+    syncFullHistory: false,
+    getMessage: async (key) => {
+        try {
+            let jid = jidNormalizedUser(key.remoteJid)
+            let msg = await store.loadMessage(jid, key.id)
+            return msg?.message || ""
+        } catch (error) { return "" }
+    },
+    msgRetryCounterCache: msgRetryCounterCache,
+    userDevicesCache: userDevicesCache,
+    defaultQueryTimeoutMs: 5000,
+    cachedGroupMetadata: (jid) => global.conn?.chats?.[jid] ?? {},
+    version: version,
+    keepAliveIntervalMs: 8000,
+    maxIdleTimeMs: 12000,
+    connectTimeoutMs: 10000,
+    fireInitQueries: false,
+    txnUpdateTimeoutMs: 3000,
+    retryRequestDelayMs: 50,
+    maxMsgRetryCount: 2,
+    shouldIgnoreJid: (jid) => false,
+    appStateMacVerification: { patch: false, snapshot: false },
+    validateFingerprint: false,
+    connectionStrategy: 'balanced'
+}
+
+global.conn = makeWASocket(connectionOptions)
+conn.ev.on("creds.update", saveCreds)
+
+if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
+    if (opcion === '2' || methodCode) {
+        opcion = '2'
+        if (!conn.authState.creds.registered) {
+            let addNumber
+            if (!!phoneNumber) {
+                addNumber = String(phoneNumber).replace(/[^0-9]/g, '')
+            } else {
+                do {
+                    console.log(chalk.hex('#00FFFF')('🐺 INGRESAR NÚMERO'))
+                    console.log(chalk.white('[+] '))
+                    phoneNumber = await question('')
+                    phoneNumber = String(phoneNumber).replace(/\D/g, '')
+                    if (!phoneNumber.startsWith('+')) phoneNumber = `+${phoneNumber}`
+                } while (!await isValidPhoneNumber(phoneNumber))
+                rl.close()
+                addNumber = phoneNumber.replace(/\D/g, '')
+                setTimeout(async () => {
+                    let codeBot = await conn.requestPairingCode(addNumber)
+                    codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
+                    console.log(chalk.hex('#00FFFF')('🔐 CÓDIGO GENERADO'))
+                    console.log(chalk.hex('#00FFFF')('──────────────────────────'))
+                    console.log(chalk.white('╔══════════════════════╗'))
+                    console.log(chalk.white('║       ' + codeBot + '       ║'))
+                    console.log(chalk.white('╚══════════════════════╝'))
+                    console.log(chalk.hex('#00FFFF')('──────────────────────────'))
+                }, 1000)
+            }
+        }
+    }
+}
+
+process.on('uncaughtException', console.error)
+process.on('unhandledRejection', (reason, promise) => {
+    console.error("Rechazo no manejado detectado:", reason)
+})
+
+let isInit = true
+let handler = await import('./src/shiroko.js')
+
+_quickTest().catch(console.error)
+
+global.rutaJadiBot = join(__dirname, `./${global.jadi}`)
+if (global.shirokoJadibts) {
+    if (!existsSync(global.rutaJadiBot)) {
+        mkdirSync(global.rutaJadiBot, { recursive: true })
+        console.log(chalk.white(`ꕥ La carpeta: ${global.jadi} se creó correctamente.`))
+    }
+    const readRutaJadiBot = readdirSync(global.rutaJadiBot)
+    if (readRutaJadiBot.length > 0) {
+        const creds = 'creds.json'
+        for (const gjbts of readRutaJadiBot) {
+            const botPath = join(global.rutaJadiBot, gjbts)
+            if (existsSync(botPath) && statSync(botPath).isDirectory()) {
+                const readBotPath = readdirSync(botPath)
+                if (readBotPath.includes(creds)) {
+                    shirokoJadiBot({ pathshirokoJadiBot: botPath, m: null, conn, args: '', usedPrefix: '/', command: 'code' })
+                }
+            }
+        }
+    }
+}
 
 if (!global.opts['test']) {
     if (global.db) setInterval(async () => {
         if (global.db.data) await global.db.write()
-    }, 60 * 1000)
+        if (global.opts['autocleartmp'] && global.support?.find) {
+            const tmp = [join(__dirname, 'tmp'), join(__dirname, 'tmp'), join(__dirname, 'tmp', `${global.jadi}`)]
+            tmp.forEach((filename) => spawn('find', [filename, '-amin', '3', '-type', 'f', '-delete']))
+        }
+    }, 30 * 1000)
 }
 
 setInterval(async () => {
-    const tmpDir = join(__dirname, 'tmp')
+    const tmpDirInterval = join(__dirname, 'tmp')
     try {
-        if (existsSync(tmpDir)) {
-            const filenames = readdirSync(tmpDir)
+        if (existsSync(tmpDirInterval)) {
+            const filenames = readdirSync(tmpDirInterval)
             filenames.forEach(file => {
-                const filePath = join(tmpDir, file)
-                if (statSync(filePath).isFile()) {
-                    const isSession = /session|creds/i.test(file)
-                    if (!isSession && file !== 'config.json') {
-                        unlinkSync(filePath)
-                    }
+                const filePath = join(tmpDirInterval, file)
+                if (statSync(filePath).isFile() && !filePath.includes('Sessions') && !filePath.includes('sessions') && file !== 'config.json') {
+                    unlinkSync(filePath)
                 }
             })
         }
-    } catch {}
-    if (global.gc) global.gc()
-}, 30000)
+    } catch { }
+}, 30 * 1000)
 
-async function _quickTest() {
-    const test = await Promise.all([
-        spawn('ffmpeg'),
-        spawn('ffprobe'),
-        spawn('ffmpeg', ['-hidebanner', '-loglevel', 'error', '-filter_complex', 'color', '-frames:v', '1', '-f', 'webp', '-']),
-        spawn('convert'),
-        spawn('magick'),
-        spawn('gm'),
-        spawn('find', ['--version']),
-    ].map((p) => {
-        return Promise.race([
-            new Promise((resolve) => {
-                p.on('close', (code) => {
-                    resolve(code !== 127)
-                })
-            }),
-            new Promise((resolve) => {
-                p.on('error', (_) => resolve(false))
-            })
-        ])
-    }))
-    const [ffmpeg, ffprobe, ffmpegWebp, convert, magick, gm, find] = test
-    const s = global.support = { ffmpeg, ffprobe, ffmpegWebp, convert, magick, gm, find }
-    Object.freeze(global.support)
-}
-_quickTest().catch(console.error)
+loadCommandsFromFolders().then((_) => Object.keys(global.plugins)).catch(console.error)
 
-async function isValidPhoneNumber(number) {
-    try {
-        let num = String(number).replace(/\s+/g, '')
-        if (num.startsWith('+521')) {
-            num = num.replace('+521', '+52')
-        } else if (num.startsWith('+52') && num[4] === '1') {
-            num = num.replace('+521', '+52')
-        }
-        const parsedNumber = phoneUtil.parseAndKeepRawInput(num)
-        return phoneUtil.isValidNumber(parsedNumber)
-    } catch (error) {
-        return false
-    }
-}
+conn.isInit = false
+console.log(chalk.hex('#00FFFF')('╔══════════════════════════════╗'))
+console.log(chalk.hex('#00FFFF').bold('║         SHIROKO - LISTO        ║'))
+console.log(chalk.hex('#00FFFF')('╚══════════════════════════════╝'))
 
-async function joinChannels(sock) {
-    for (const value of Object.values(global.ch || {})) {
-        if (typeof value === 'string' && value.endsWith('@newsletter')) {
-            await sock.newsletterFollow(value).catch(() => {})
-        }
-    }
-}
+setupWatcher()
+await global.reloadHandler()
