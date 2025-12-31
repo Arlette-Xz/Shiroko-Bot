@@ -74,7 +74,7 @@ global.channel = "https://whatsapp.com/channel/0029VbAmwbQBqbr587Zkni1a"
 global.github = "https://github.com/Arlette-Xz/Shiroko-Bot"
 global.gmail = "arlette.x7z@gmail.com"
 global.ch = {
-    ch1: "120363402095978084@newsletter"
+    ch1: "120363403176894973@newsletter"
 }
 
 // ─────────────────────────────
