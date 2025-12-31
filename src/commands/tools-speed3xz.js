@@ -69,7 +69,7 @@ const handler = async (m, {conn, args, command, usedPrefix}) => {
         contextInfo: {
           isForwarded: true,
           forwardedNewsletterMessageInfo: {
-            newsletterJid: '120363402095978084@newsletter',
+            newsletterJid: '120363403176894973@newsletter',
             serverMessageId: '',
             newsletterName: '【 ✰ 】𝗦𝗽𝗲𝗲𝗱𝟯𝘅𝘇 𝗖𝗹𝘂𝗯 - 𝗢𝗳𝗶𝗰𝗶𝗮𝗹 𝗖𝗵𝗮𝗻𝗻𝗲𝗹'
           }
