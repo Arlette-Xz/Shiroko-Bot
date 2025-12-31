@@ -480,7 +480,7 @@ let handler = async (m, { conn, usedPrefix: _p, args, sender }) => {
       contextInfo: {
         isForwarded: true,
         forwardedNewsletterMessageInfo: {
-          newsletterJid: '120363402095978084@newsletter',
+          newsletterJid: '120363403176894973@newsletter',
           serverMessageId: '',
           newsletterName: '【 ✰ 】𝗦𝗵𝗶𝗿𝗼𝗸𝗼 𝗕𝗼𝘁 - 𝗢𝗳𝗶𝗰𝗶𝗮𝗹'
         }
