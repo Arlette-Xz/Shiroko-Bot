@@ -19,7 +19,7 @@
     "url": "git+https://github.com/Arlette-Xz/Shiroko-Bot.git"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "github:Kone457/bails",
+    "@whiskeysockets/baileys": "github:Melody-Xz/Delta",
     "awesome-phonenumber": "^5.5.1",
     "boxen": "^7.1.1",
     "chalk": "^5.3.0",
