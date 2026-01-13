@@ -33,7 +33,7 @@ import { Boom } from '@hapi/boom'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-let rtx = '✿ *Vincula tu cuenta usando el QR.*\n\n'
+let rtx = '✿ `Vincula tu cuenta usando el QR.`\n\n'
 rtx += '[ ✰ ] Instrucciones:\n'
 rtx += '*1 » Opciones adicionales*\n'
 rtx += '*2 » Dispositivos vinculados*\n'
@@ -41,7 +41,7 @@ rtx += '*3 » Vincular nuevo dispositivo*\n'
 rtx += '*4 » Escanear código QR*\n\n'
 rtx += '> *Nota:* Código válido por 30 segundos'
 
-let rtx2 = '✿ *Vincula tu cuenta usando el código.*\n\n'
+let rtx2 = '✿ `Vincula tu cuenta usando el código.`\n\n'
 rtx2 += '[ ✰ ] Instrucciones:\n'
 rtx2 += '*1 » Opciones adicionales*\n'
 rtx2 += '*2 » Dispositivos vinculados*\n'
