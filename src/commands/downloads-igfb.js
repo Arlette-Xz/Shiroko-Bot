@@ -11,30 +11,12 @@ if (isInstagram) api = `https://api-nexy.ultraplus.click/api/dl/instagram?url=${
 if (api) {
 const res = await fetch(api)
 const json = await res.json()
-if (json.status === 'success' && json.result) {
-if (json.result.hd || json.result.sd) data = [json.result.hd || json.result.sd]
-else if (json.result.url) data = [json.result.url]
-else if (json.result.media) data = Array.isArray(json.result.media) ? json.result.media.map(item => item.url || item) : [json.result.media]
+if (json.status && json.media && Array.isArray(json.media)) {
+data = json.media.map(v => v.url)
 }}} catch {}
-if (!data.length) {
-try {
-const isFacebook = args[0].includes('facebook.com') || args[0].includes('fb.watch')
-const isInstagram = args[0].includes('instagram.com')
-let api = ''
-if (isFacebook) api = `https://api-nexy.ultraplus.click/api/dl/facebook?url=${encodeURIComponent(args[0])}`
-if (isInstagram) api = `https://api-nexy.ultraplus.click/api/dl/instagram?url=${encodeURIComponent(args[0])}`
-if (api) {
-const res = await fetch(api)
-const json = await res.json()
-if (json.status === 'success' && json.result) {
-if (json.result.hd || json.result.sd) data = [json.result.hd || json.result.sd]
-else if (json.result.url) data = [json.result.url]
-else if (json.result.media) data = Array.isArray(json.result.media) ? json.result.media.map(item => item.url || item) : [json.result.media]
-}}} catch {}
-}
 if (!data.length) return conn.reply(m.chat, `ꕥ No se pudo obtener el contenido.`, m)
 for (let media of data) {
-const extension = media.includes('.jpg') || media.includes('.png') || media.includes('.webp') ? 'jpg' : 'mp4'
+const extension = media.includes('.jpg') || media.includes('.png') || media.includes('.webp') || media.includes('image') ? 'jpg' : 'mp4'
 const filename = `instagram.${extension}`
 await conn.sendFile(m.chat, media, filename, `ꕤ Aquí tienes`, m)
 }} catch (error) {
