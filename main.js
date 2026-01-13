@@ -1,7 +1,7 @@
 import { createRequire } from 'module'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { platform } from 'process'
-import fs, { readdirSync, statSync, unlinkSync, existsSync, mkdirSync, readFileSync, watch } from 'fs'
+import fs, { readdirSync, statSync, unlinkSync, existsSync, mkdirSync, readFileSync, watch, rmSync } from 'fs'
 import path, { join, dirname } from 'path'
 import chalk from 'chalk'
 import syntaxerror from 'syntax-error'
@@ -40,6 +40,7 @@ const __dirname = global.__dirname(import.meta.url)
 async function isValidPhoneNumber(number) {
     try {
         let num = String(number).replace(/\s+/g, '')
+     
         if (num.startsWith('+521')) {
             num = num.replace('+521', '+52')
         } else if (num.startsWith('+52') && num[4] === '1') {
@@ -53,10 +54,14 @@ async function isValidPhoneNumber(number) {
 }
 
 async function joinChannels(sock) {
-    for (const value of Object.values(global.ch || {})) {
-        if (typeof value === 'string' && value.endsWith('@newsletter')) {
-            await sock.newsletterFollow(value).catch(() => {})
+    try {
+        for (const value of Object.values(global.ch || {})) {
+            if (typeof value === 'string' && value.endsWith('@newsletter')) {
+                await sock.newsletterFollow(value).catch(() => {})
+            }
         }
+    } catch (e) {
+        console.error('Error al unirse al canal:', e)
     }
 }
 
@@ -144,6 +149,7 @@ async function _reloadCore(_ev, filename) {
                 conn.logger.error(`syntax error while loading '${pluginName}'\n${err}`)
             } else {
                 try {
+          
                     const module = await import(`${global.__filename(dir)}?update=${Date.now()}`)
                     global.plugins[pluginName] = module.default || module
                 } catch (e) {
@@ -276,13 +282,29 @@ global.reloadHandler = async function (restatConn) {
     return true
 }
 
+function cleanTmpNative(dirPath) {
+    try {
+        if (!existsSync(dirPath)) return;
+        const files = readdirSync(dirPath);
+        for (const file of files) {
+            const filePath = join(dirPath, file);
+            try {
+                const stat = statSync(filePath);
+                if (stat.isFile() && !file.endsWith('.json')) { 
+                   unlinkSync(filePath);
+                }
+            } catch (e) {}
+        }
+    } catch (e) { console.error('Error limpiando tmp:', e) }
+}
+
 const tmpDirCheck = join(__dirname, 'tmp')
 if (!existsSync(tmpDirCheck)) mkdirSync(tmpDirCheck, { recursive: true })
 
 await global.loadDatabase()
 
 const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
-const msgRetryCounterCache = new NodeCache({ stdTTL: 120, checkperiod: 60 })
+const msgRetryCounterCache = new NodeCache({ stdTTL: 120, checkperiod: 60 }) 
 const userDevicesCache = new NodeCache({ stdTTL: 120, checkperiod: 60 })
 const { version } = await fetchLatestBaileysVersion()
 let phoneNumber = global.botNumber
@@ -311,11 +333,12 @@ if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.j
 }
 console.info = () => {}
 
+// Configuración optimizada de conexión
 const connectionOptions = {
     logger: pino({ level: 'silent' }),
     printQRInTerminal: opcion == '1' ? true : methodCodeQR ? true : false,
     mobile: MethodMobile,
-    browser: ["Linux", "Chrome", "120.0.0.0", "Headless"],
+    browser: ["Ubuntu", "Chrome", "20.0.04", "Shiroko"], 
     auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
@@ -325,23 +348,26 @@ const connectionOptions = {
     syncFullHistory: false,
     getMessage: async (key) => {
         try {
-            let jid = jidNormalizedUser(key.remoteJid)
-            let msg = await store.loadMessage(jid, key.id)
-            return msg?.message || ""
+            if (store) {
+                let jid = jidNormalizedUser(key.remoteJid)
+                let msg = await store.loadMessage(jid, key.id)
+                return msg?.message || ""
+            }
+            return { conversation: 'Hola' } 
         } catch (error) { return "" }
     },
     msgRetryCounterCache: msgRetryCounterCache,
     userDevicesCache: userDevicesCache,
-    defaultQueryTimeoutMs: 2000,
+    defaultQueryTimeoutMs: 3000, 
     cachedGroupMetadata: (jid) => global.conn?.chats?.[jid] ?? {},
     version: version,
-    keepAliveIntervalMs: 4000,
-    maxIdleTimeMs: 8000,
-    connectTimeoutMs: 6000,
+    keepAliveIntervalMs: 10000, 
+    maxIdleTimeMs: 15000,
+    connectTimeoutMs: 10000, 
     fireInitQueries: true,
     txnUpdateTimeoutMs: 1000,
-    retryRequestDelayMs: 20,
-    maxMsgRetryCount: 2,
+    retryRequestDelayMs: 250,
+    maxMsgRetryCount: 1, 
     shouldIgnoreJid: (jid) => false,
     appStateMacVerification: { patch: false, snapshot: false },
     validateFingerprint: false,
@@ -370,7 +396,7 @@ const connectionOptions = {
         maxPayload: 1048576,
         perMessageDeflate: false
     },
-    fetchMessageMaxAttempts: 2,
+    fetchMessageMaxAttempts: 1, 
     queryChatsTillReceived: false,
     emitPresenceUpdates: false,
     emitGroupParticipantsUpdate: false,
@@ -393,7 +419,7 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
                 addNumber = String(phoneNumber).replace(/[^0-9]/g, '')
             } else {
                 do {
-                    console.log(chalk.hex('#00FFFF')('🐺 INGRESAR NÚMERO'))
+                    console.log(chalk.hex('#00FFFF')('INGRESAR NÚMERO'))
                     console.log(chalk.white('[+] '))
                     phoneNumber = await question('')
                     phoneNumber = String(phoneNumber).replace(/\D/g, '')
@@ -404,7 +430,7 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
                 setTimeout(async () => {
                     let codeBot = await conn.requestPairingCode(addNumber)
                     codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
-                    console.log(chalk.hex('#00FFFF')('🔐 CÓDIGO GENERADO'))
+                    console.log(chalk.hex('#00FFFF')('CÓDIGO GENERADO'))
                     console.log(chalk.hex('#00FFFF')('──────────────────────────'))
                     console.log(chalk.white('╔══════════════════════╗'))
                     console.log(chalk.white('║       ' + codeBot + '       ║'))
@@ -458,29 +484,20 @@ if (global.shirokoJadibts) {
     }
 }
 
+// Sistema de limpieza optimizado (Nativo en lugar de spawn 'find')
 if (!global.opts['test']) {
     if (global.db) setInterval(async () => {
         if (global.db.data) await global.db.write()
-        if (global.opts['autocleartmp'] && global.support?.find) {
-            const tmp = [join(__dirname, 'tmp'), join(__dirname, 'tmp'), join(__dirname, 'tmp', `${global.jadi}`)]
-            tmp.forEach((filename) => spawn('find', [filename, '-amin', '3', '-type', 'f', '-delete']))
+        if (global.opts['autocleartmp']) {
+            const tmpFolders = [join(__dirname, 'tmp'), join(__dirname, 'tmp', `${global.jadi}`)]
+            tmpFolders.forEach(folder => cleanTmpNative(folder))
         }
     }, 60 * 1000)
 }
 
 setInterval(async () => {
     const tmpDirInterval = join(__dirname, 'tmp')
-    try {
-        if (existsSync(tmpDirInterval)) {
-            const filenames = readdirSync(tmpDirInterval)
-            filenames.forEach(file => {
-                const filePath = join(tmpDirInterval, file)
-                if (statSync(filePath).isFile() && !filePath.includes('Sessions') && !filePath.includes('sessions') && file !== 'config.json') {
-                    unlinkSync(filePath)
-                }
-            })
-        }
-    } catch { }
+    cleanTmpNative(tmpDirInterval);
 }, 30 * 1000)
 
 loadCommandsFromFolders().then((_) => Object.keys(global.plugins)).catch(console.error)

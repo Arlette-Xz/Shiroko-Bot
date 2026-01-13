@@ -1,4 +1,4 @@
-process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '1'
+Process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '1'
 
 import './src/config.js'
 import './src/commands/main-allfake.js'
@@ -30,7 +30,6 @@ setTimeout(async () => {
     } catch (e) {}
 }, 2000)
 
-
 let { say } = cfonts
 console.clear()
 console.log(chalk.hex('#00FFFF')('╔══════════════════════════════╗'))
@@ -51,6 +50,7 @@ global.__require = function require(dir = import.meta.url) {
 
 global.timestamp = { start: new Date() }
 const __dirname = global.__dirname(import.meta.url)
+
 global.opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse())
 
 let prefixArray = Array.isArray(global.prefix) ? global.prefix : [global.prefix || ':']
@@ -59,35 +59,48 @@ let escapedPrefix = prefixArray.map(p => {
 }).join('|')
 global.prefix = new RegExp(`^(${escapedPrefix})`)
 
-
 const databaseDir = join(__dirname, 'src/database')
 if (!existsSync(databaseDir)) {
     mkdirSync(databaseDir, { recursive: true })
 }
 
-global.db = new Low(/https?:\/\//.test(global.opts['db'] || '') ? new cloudDBAdapter(global.opts['db']) : new JSONFile(join(databaseDir, 'database.json')))
+global.db = new Low(
+    /https?:\/\//.test(global.opts['db'] || '') ? 
+    new cloudDBAdapter(global.opts['db']) : 
+    new JSONFile(join(databaseDir, 'database.json'))
+)
 global.DATABASE = global.db
 
 global.loadDatabase = async function loadDatabase() {
     if (global.db.READ) {
-        return new Promise((resolve) => setInterval(async function () {
-            if (!global.db.READ) {
-                clearInterval(this)
-                resolve(global.db.data == null ? global.loadDatabase() : global.db.data)
-            }
-        }, 1 * 1000))
+        return new Promise((resolve) => {
+            const helperInterval = setInterval(async function () {
+                if (!global.db.READ) {
+                    clearInterval(helperInterval)
+                    resolve(global.db.data == null ? global.loadDatabase() : global.db.data)
+                }
+            }, 500)
+        })
     }
     if (global.db.data !== null) return
     global.db.READ = true
     await global.db.read().catch(console.error)
     global.db.READ = null
+    
     global.db.data = {
         users: {},
         chats: {},
+        stats: {},
+        msgs: {},
+        sticker: {},
         settings: {},
         ...(global.db.data || {}),
     }
+    
     global.db.chain = chain(global.db.data)
 }
 
-import('./main.js').catch(console.error)
+loadDatabase().then(() => {
+    import('./main.js').catch(console.error)
+    console.log(chalk.hex('#00FFFF')('✓ Base de datos cargada correctamente'))
+}).catch(console.error)
