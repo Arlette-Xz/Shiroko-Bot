@@ -3,28 +3,41 @@ try {
 if (!args[0]) return conn.reply(m.chat, `ꕤ Por favor, ingresa un enlace de Instagram/Facebook.`, m)
 let data = []
 try {
-await m.react('🕒')
-const api = `${global.APIs.vreden.url}/api/igdownload?url=${encodeURIComponent(args[0])}`
+const isFacebook = args[0].includes('facebook.com') || args[0].includes('fb.watch')
+const isInstagram = args[0].includes('instagram.com')
+let api = ''
+if (isFacebook) api = `https://api-nexy.ultraplus.click/api/dl/facebook?url=${encodeURIComponent(args[0])}`
+if (isInstagram) api = `https://api-nexy.ultraplus.click/api/dl/instagram?url=${encodeURIComponent(args[0])}`
+if (api) {
 const res = await fetch(api)
 const json = await res.json()
-if (json.resultado?.respuesta?.datos?.length) {
-data = json.resultado.respuesta.datos.map(v => v.url)
-}} catch {}
+if (json.status === 'success' && json.result) {
+if (json.result.hd || json.result.sd) data = [json.result.hd || json.result.sd]
+else if (json.result.url) data = [json.result.url]
+else if (json.result.media) data = Array.isArray(json.result.media) ? json.result.media.map(item => item.url || item) : [json.result.media]
+}}} catch {}
 if (!data.length) {
 try {
-const api = `${global.APIs.delirius.url}/download/instagram?url=${encodeURIComponent(args[0])}`
+const isFacebook = args[0].includes('facebook.com') || args[0].includes('fb.watch')
+const isInstagram = args[0].includes('instagram.com')
+let api = ''
+if (isFacebook) api = `https://api-nexy.ultraplus.click/api/dl/facebook?url=${encodeURIComponent(args[0])}`
+if (isInstagram) api = `https://api-nexy.ultraplus.click/api/dl/instagram?url=${encodeURIComponent(args[0])}`
+if (api) {
 const res = await fetch(api)
 const json = await res.json()
-if (json.status && json.data?.length) {
-data = json.data.map(v => v.url)
-}} catch {}
+if (json.status === 'success' && json.result) {
+if (json.result.hd || json.result.sd) data = [json.result.hd || json.result.sd]
+else if (json.result.url) data = [json.result.url]
+else if (json.result.media) data = Array.isArray(json.result.media) ? json.result.media.map(item => item.url || item) : [json.result.media]
+}}} catch {}
 }
 if (!data.length) return conn.reply(m.chat, `ꕥ No se pudo obtener el contenido.`, m)
 for (let media of data) {
-await conn.sendFile(m.chat, media, 'instagram.mp4', `ꕤ Aquí tienes`, m)
-await m.react('✔️')
+const extension = media.includes('.jpg') || media.includes('.png') || media.includes('.webp') ? 'jpg' : 'mp4'
+const filename = `instagram.${extension}`
+await conn.sendFile(m.chat, media, filename, `ꕤ Aquí tienes`, m)
 }} catch (error) {
-await m.react('✖️')
 await m.reply(`⚠︎ Se ha producido un problema.\n> Usa *${usedPrefix}report* para informarlo.\n\n${error.message}`)
 }}
 
