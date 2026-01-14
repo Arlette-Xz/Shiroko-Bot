@@ -9,9 +9,10 @@ let handler = async (m, { conn, text, participants, command, usedPrefix }) => {
 
     let list = participants.map(u => {
         const user = usersData[u.id] || {}
+        const name = user.mName || user.name || conn.getName(u.id) || u.id.split('@')[0]
         return {
             id: u.id,
-            name: user.name || conn.getName(u.id) || u.id.split('@')[0],
+            name: name,
             cmds: user.commands || user.commandCount || 0,
             admin: u.admin || u.superadmin || false
         }
