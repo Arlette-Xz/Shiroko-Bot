@@ -17,7 +17,7 @@ let handler = async (m, { conn }) => {
   if (x < 5) x = Math.floor(Math.random() * (12 - 5) + 5)
 
   await conn.sendMessage(m.chat, { 
-    text: `${t}\n\n✰ *Latencia:* \`${x} ms\`\n✦ *Velocidad:* \`Luz\`\nꕤ *Estado:* \`Óptima\`\n\n✰ *RAM:* \`${r} MB\`\n❖ *OS:* \`${p}\`\n\n${f}`, 
+    text: `${t}\n\n✰ *Latencia:* \`${x} ms\`\n✦ *Velocidad:* \`Fast\`\nꕤ *Estado:* \`Óptima\`\n\n✰ *RAM:* \`${r} MB\`\n❖ *OS:* \`${p}\`\n\n${f}`, 
     edit: key 
   })
 }
