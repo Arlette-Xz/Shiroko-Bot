@@ -1,35 +1,30 @@
 import { cpus as _cpus, totalmem, freemem, platform, hostname } from 'os'
-import { execSync } from 'child_process'
 import { sizeFormatter } from 'human-readable'
 
-let format = sizeFormatter({ std: 'JEDEC', decimalPlaces: 2, keepTrailingZeroes: false, render: (literal, symbol) => `${literal} ${symbol}B` })
-
-function getCPUUsage() {
-    try {
-        const cpus = _cpus()
-        let totalIdle = 0, totalTick = 0
-        cpus.forEach(cpu => {
-            for (let type in cpu.times) {
-                totalTick += cpu.times[type]
-            }
-            totalIdle += cpu.times.idle
-        })
-        return `${(100 - (100 * totalIdle / totalTick)).toFixed(1)}%`
-    } catch {
-        return 'N/A'
-    }
-}
+const format = sizeFormatter({ std: 'JEDEC', decimalPlaces: 2, keepTrailingZeroes: false, render: (literal, symbol) => `${literal} ${symbol}B` })
+const arch = process.arch
+const plt = platform()
+const host = hostname().slice(0, 8)
+const cpuLen = _cpus().length
 
 let handler = async (m, { conn }) => {
-let totalUsers = Object.keys(global.db.data.users).length
-let totalChats = Object.keys(global.db.data.chats).length
-let totalPlugins = Object.values(global.plugins).filter((v) => v.help && v.tags).length
-let totalBots = global.conns.filter(conn => conn.user && conn.ws.socket && conn.ws.socket.readyState !== 3).length
-let totalCommands = Object.values(global.db.data.users).reduce((acc, user) => acc + (user.commands || 0), 0)
-let system = `「✦」Estado de *${botname}* [MAIN]
+    const [totalUsers, totalChats, totalPlugins] = [
+        Object.keys(global.db.data.users).length,
+        Object.keys(global.db.data.chats).length,
+        Object.values(global.plugins).filter((v) => v.help && v.tags).length
+    ]
+
+    const totalBots = global.conns.filter(c => c.user && c.ws?.socket?.readyState !== 3).length
+    const totalCommands = Object.values(global.db.data.users).reduce((acc, u) => acc + (u.commands || 0), 0)
+    
+    const cpuIdle = _cpus().reduce((acc, cpu) => acc + cpu.times.idle, 0)
+    const cpuTick = _cpus().reduce((acc, cpu) => acc + Object.values(cpu.times).reduce((a, b) => a + b, 0), 0)
+    const usage = (100 - (100 * cpuIdle / cpuTick)).toFixed(1) + '%'
+
+    const system = `「✦」Estado de *${global.botname}*
 
 ❒ RAM [MAIN]: *${format(process.memoryUsage().rss)}*
-❒ CPU (x${_cpus().length}): *${getCPUUsage()}*
+❒ CPU (x${cpuLen}): *${usage}*
 ✿ Bots activos: *${totalBots}*
 ✐ Comandos: *${toNum(totalCommands)}*
 ❒ Usuarios: *${totalUsers.toLocaleString()}*
@@ -37,11 +32,12 @@ let system = `「✦」Estado de *${botname}* [MAIN]
 ❒ Plugins: *${totalPlugins}*
 
 ◤ Sistema:
-    *✦ Plataforma:* ${platform()} ${process.arch}
+    *✦ Plataforma:* ${plt} ${arch}
     *✦ RAM Total:* ${format(totalmem())}
     *✦ RAM Usada:* ${format(totalmem() - freemem())}
-    *✦ Host:* ${hostname().slice(0, 8)}...`
-await conn.reply(m.chat, system, m, (global.rcanalr || {}))
+    *✦ Host:* ${host}...`
+
+    await conn.reply(m.chat, system, m, (global.rcanalr || {}))
 }
 
 handler.help = ['estado']
@@ -51,11 +47,8 @@ handler.group = true
 
 export default handler
 
-function toNum(number) {
-if (number >= 1000 && number < 1000000) {
-return (number / 1000).toFixed(1) + 'k'
-} else if (number >= 1000000) {
-return (number / 1000000).toFixed(1) + 'M'
-} else {
-return number.toString()
-}}
+function toNum(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+    return n.toString()
+}
