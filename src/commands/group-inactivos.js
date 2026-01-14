@@ -8,8 +8,9 @@ let handler = async (m, { conn, text, participants }) => {
     const pageSize = 10
     let list = participants.map(u => {
         const user = usersData[u.id] || {}
-        // Intenta obtener el conteo de varias variables posibles
-        const msgs = user.chat || user.message || user.msgCount || 0
+        
+        // Búsqueda inteligente de la variable de mensajes
+        const msgs = user.chat || user.message || user.msgCount || user.messages || user.count || 0
         const cmds = user.commands || user.commandCount || 0
         
         return {
@@ -18,8 +19,9 @@ let handler = async (m, { conn, text, participants }) => {
             msgs: msgs,
             cmds: cmds
         }
-    }).filter(u => u.msgs >= 0) // Quitamos el filtro de > 0 para que veas si marca 0
+    })
 
+    // Ordenamos de mayor a menor mensajes
     list.sort((a, b) => b.msgs - a.msgs)
 
     const totalPages = Math.ceil(list.length / pageSize)
@@ -37,7 +39,7 @@ let handler = async (m, { conn, text, participants }) => {
     }).join('\n')
 
     txt += `\n\n> Página: *${page}* de *${totalPages}*`
-    txt += `\n> Usuarios en lista: *${list.length}*`
+    txt += `\n> Usa: *.topcount ${days} ${page + 1}*`
 
     await conn.sendMessage(m.chat, { text: txt }, { quoted: m })
 }
