@@ -51,10 +51,11 @@ async function initializeServiceCore() {
 }
 
 const handler = async (m, { conn, args, command }) => {
-    let _race;
+    let _race, _getBuf;
     try {
         const _core = await initializeServiceCore();
         _race = _core.raceWithFallback;
+        _getBuf = _core.getBufferFromUrl;
     } catch (e) { return; }
 
     try {
@@ -66,7 +67,6 @@ const handler = async (m, { conn, args, command }) => {
         const v = search.all[0];
         if (!v) return conn.reply(m.chat, 'ꕤ *Sin resultados.*', m);
 
-        // Mensaje con formato exacto solicitado ✰
         const info = `*✐ Título »* ${v.title}\n*❖ Canal »* ${v.author.name}\n*ⴵ Duración »* ${v.timestamp}\n*❒ Link »* ${v.url}\n\n> ꕤ Preparando tu descarga...`;
         await conn.sendMessage(m.chat, { image: { url: v.thumbnail }, caption: info }, { quoted: m });
 
@@ -89,7 +89,6 @@ const handler = async (m, { conn, args, command }) => {
             writeFileSync(inP, response.data);
 
             try {
-                // Lógica FFmpeg de cases para audio plano y alta calidad ✰
                 await execPromise(`ffmpeg -i "${inP}" -c:a libopus -b:a 128k -ar 48000 -ac 1 -application voip -frame_duration 20 -vbr on "${outP}"`);
                 await conn.sendMessage(m.chat, { 
                     audio: readFileSync(outP), 
@@ -103,9 +102,9 @@ const handler = async (m, { conn, args, command }) => {
                 if (existsSync(outP)) unlinkSync(outP);
             }
         } else {
-            // Lógica de video de cases (URL directa) ꕤ
+            const videoBuffer = await _getBuf(res.download);
             await conn.sendMessage(m.chat, { 
-                video: { url: res.download }, 
+                video: videoBuffer, 
                 caption: `> ✰ ${v.title}`, 
                 mimetype: 'video/mp4'
             }, { quoted: m });
@@ -115,3 +114,4 @@ const handler = async (m, { conn, args, command }) => {
 
 handler['command'] = ['play', 'yta', 'ytmp3', 'play2', 'ytv', 'ytmp4', 'playaudio', 'mp4', 'ytaudio', 'mp3'];
 export default handler;
+``` ꕤ✰
