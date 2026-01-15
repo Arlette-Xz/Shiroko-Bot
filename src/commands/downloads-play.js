@@ -57,20 +57,21 @@ const handler = async (m, { conn, args, command }) => {
 
         if (isAudio) {
             const inputFile = join(tmp, `${Date.now()}_in.mp3`);
-            const outputFile = join(tmp, `${Date.now()}_out.opus`);
-            
+            const outputFile = join(tmp, `${Date.now()}_out.mp4`);
             const response = await axios.get(result.download, { responseType: 'arraybuffer' });
             writeFileSync(inputFile, Buffer.from(response.data));
 
             try {
-                await execPromise(`ffmpeg -i "${inputFile}" -c:a libopus -b:a 128k -ar 48000 -ac 1 -application voip -frame_duration 20 -vbr on "${outputFile}"`);
+                // Esta configuración es la "maestra": MP4 (AAC) compatible con iOS/Android 
+                // pero con flags que WhatsApp interpreta como nota de voz plana. ✰
+                await execPromise(`ffmpeg -i "${inputFile}" -c:a aac -b:a 128k -ar 44100 -ac 1 -movflags +faststart "${outputFile}"`);
                 
                 const finalAudio = readFileSync(outputFile);
                 await conn.sendMessage(m.chat, { 
                     audio: finalAudio, 
-                    mimetype: 'audio/ogg; codecs=opus', 
+                    mimetype: 'audio/mp4', 
                     ptt: true,
-                    contextInfo: { externalAdReply: { showAdAttribution: false }} 
+                    fileName: v.title + '.mp4'
                 }, { quoted: m });
 
             } catch (e) {
