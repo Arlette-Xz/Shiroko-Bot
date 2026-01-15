@@ -16,17 +16,20 @@ const groupMetadataCache = new Map()
 
 export async function handler(chatUpdate) {
     this.msgqueque = this.msgqueque || []
+    this.uptime = this.uptime || Date.now()
     if (!chatUpdate) return
 
     this.pushMessage(chatUpdate.messages).catch(() => null)
     
     let m = chatUpdate.messages[chatUpdate.messages.length - 1]
     if (!m) return
+    
     if (global.db.data == null) await global.loadDatabase()
 
     try {
         m = smsg(this, m) || m
         if (!m || m.isBaileys) return
+        m.exp = 0
 
         const { sender, chat: mChat, name: mName } = m
         const db = global.db.data
@@ -37,46 +40,52 @@ export async function handler(chatUpdate) {
 
         const isROwner = global.owner.some(num => num.replace(/[^0-9]/g, "") + "@s.whatsapp.net" === sender) || m.fromMe
         const isPrems = isROwner || global.prems.some(v => v.replace(/[^0-9]/g, "") + "@s.whatsapp.net" === sender) || user.premium
-        const isOwners = isROwner || sender === this.user.jid
+        const isOwners = isROwner || [this.user.jid].includes(sender)
 
         if (typeof m.text !== "string") m.text = ""
 
         let groupMetadata, participants, userGroup, botGroup
         if (m.isGroup) {
+            const now = Date.now()
             const cached = groupMetadataCache.get(mChat)
-            if (cached && (Date.now() - cached.timestamp) < 10000) {
+            if (cached && (now - cached.timestamp) < 10000) {
                 groupMetadata = cached.metadata
                 participants = cached.participants
             } else {
                 groupMetadata = await this.groupMetadata(mChat).catch(() => ({}))
-                participants = (groupMetadata.participants || [])
-                groupMetadataCache.set(mChat, { metadata: groupMetadata, participants, timestamp: Date.now() })
+                participants = (groupMetadata.participants || []).map(p => ({ id: p.jid, jid: p.jid, admin: p.admin }))
+                groupMetadataCache.set(mChat, { metadata: groupMetadata, participants, timestamp: now })
             }
-            userGroup = participants.find(u => u.id === sender) || {}
-            botGroup = participants.find(u => u.id === this.user.jid) || {}
+            userGroup = participants.find(u => u.jid === sender) || {}
+            botGroup = participants.find(u => u.jid === this.user.jid) || {}
         }
 
         const isAdmin = userGroup?.admin || false
         const isBotAdmin = botGroup?.admin || false
         const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), "./commands")
 
-        const pluginEntries = Object.entries(global.plugins)
-        for (const [name, plugin] of pluginEntries) {
+        const plugins = Object.entries(global.plugins)
+        for (const [name, plugin] of plugins) {
             if (!plugin || plugin.disabled) continue
 
-            if (plugin.all) plugin.all.call(this, m, { chatUpdate, user, chat, settings }).catch(() => null)
+            if (typeof plugin.all === "function") {
+                plugin.all.call(this, m, { chatUpdate, user, chat, settings }).catch(() => null)
+            }
+
             if (!opts["restrict"] && plugin.tags?.includes("admin")) continue
 
             const pluginPrefix = plugin.customPrefix || this.prefix || global.prefix
             let match = null
             if (m.text) {
-                const prefixStr = Array.isArray(pluginPrefix) ? pluginPrefix.map(p => p.source || p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') : (pluginPrefix.source || pluginPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-                const regex = new RegExp(`^(${prefixStr})`)
-                const execResult = regex.exec(m.text)
-                if (execResult) match = [execResult, regex]
+                const prefixRegex = pluginPrefix instanceof RegExp ? pluginPrefix : new RegExp(`^(${[].concat(pluginPrefix).map(p => p.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&")).join('|')})`)
+                const execResult = prefixRegex.exec(m.text)
+                if (execResult) match = [execResult, prefixRegex]
             }
 
-            if (plugin.before && await plugin.before.call(this, m, { match, conn: this, participants, groupMetadata, userGroup, botGroup, isROwner, isPrems, chatUpdate, user, chat, settings })) continue
+            if (typeof plugin.before === "function") {
+                if (await plugin.before.call(this, m, { match, conn: this, participants, groupMetadata, userGroup, botGroup, isROwner, isPrems, chatUpdate, user, chat, settings })) continue
+            }
+
             if (typeof plugin !== "function" || !match) continue
 
             const usedPrefix = match[0][0]
@@ -95,8 +104,9 @@ export async function handler(chatUpdate) {
             if (/^(NJX-|BAE5|B24E)/.test(m.id)) return
 
             if (chat.primaryBot && chat.primaryBot !== this.user.jid) {
-                const primaryBotInGroup = participants?.some(p => p.id === chat.primaryBot)
-                if (primaryBotInGroup) return 
+                const primaryBotConn = global.conns?.find(conn => conn.user.jid === chat.primaryBot && conn.ws.socket?.readyState !== ws.CLOSED)
+                const primaryBotInGroup = participants?.some(p => p.jid === chat.primaryBot)
+                if ((primaryBotConn && primaryBotInGroup) || chat.primaryBot === global.conn.user.jid) return 
                 else chat.primaryBot = null
             }
 
@@ -113,7 +123,7 @@ export async function handler(chatUpdate) {
             }
 
             const fail = plugin.fail || global.dfail
-            if ((plugin.rowner || plugin.owner) && !isROwner) { fail("owner", m, this); continue }
+            if (plugin.rowner && !isROwner) { fail("owner", m, this); continue }
             if (plugin.premium && !isPrems) { fail("premium", m, this); continue }
             if (plugin.group && !m.isGroup) { fail("group", m, this); continue }
             if (plugin.botAdmin && !isBotAdmin) { fail("botAdmin", m, this); continue }
@@ -127,19 +137,20 @@ export async function handler(chatUpdate) {
             } catch (err) {
                 console.error(err)
             } finally {
-                if (plugin.after) plugin.after.call(this, m, extra).catch(() => null)
+                if (typeof plugin.after === "function") {
+                    try { await plugin.after.call(this, m, extra) } catch (e) {}
+                }
             }
             break 
         }
     } catch (err) {
         console.error(err)
     } finally {
-        if (m?.sender && global.db.data.users[m.sender]) global.db.data.users[m.sender].exp += 10
-        if (!opts["noprint"]) import("../lib/print.js").then(ptr => ptr.default(m, this)).catch(() => null)
+        if (m?.sender && global.db.data.users[m.sender]) {
+            global.db.data.users[m.sender].exp += m.exp || 0
+        }
+        if (!opts["noprint"]) {
+            import("../lib/print.js").then(ptr => ptr.default(m, this)).catch(() => {})
+        }
     }
-}
-
-global.dfail = (type, m, conn) => {
-    const msg = global.msg[type]
-    if (msg) return conn.reply(m.chat, msg.replace('${comando}', global.comando), m, rcanal).then(_ => m.react('✖️'))
 }
