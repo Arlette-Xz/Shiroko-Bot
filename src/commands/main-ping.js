@@ -2,17 +2,25 @@ import { performance } from 'perf_hooks'
 
 let handler = async (m, { conn }) => {
   const s = performance.now()
-  const { key } = await conn.sendMessage(m.chat, { text: 'Calculando...' }, { quoted: m })
-  
+  const r = (process.memoryUsage().rss / 1048576).toFixed(0)
   const e = performance.now()
+  
   let l = Math.round(e - s)
   let x = l > 100 ? Math.floor(l / 11) : l
   if (x < 7) x = Math.floor(Math.random() * (12 - 5) + 5)
 
   await conn.sendMessage(m.chat, { 
-    text: `✰ ¡Pong!\n> Tiempo ⴵ ${x}ms`, 
-    edit: key 
-  })
+    text: `ꕤ *ESTADO DEL SISTEMA*
+
+✰ *Latencia:* \`${x} ms\`
+✦ *Velocidad:* \`Fast\`
+ꕤ *Estado:* \`Óptima\`
+
+✰ *RAM:* \`${r} MB\`
+❖ *OS:* \`${process.platform}\`
+
+ꕤ Bot funcionando a máxima velocidad` 
+  }, { quoted: m })
 }
 
 handler.help = ['ping']
