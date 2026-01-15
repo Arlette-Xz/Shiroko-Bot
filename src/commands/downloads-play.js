@@ -56,7 +56,7 @@ const handler = async (msg, { conn, args, command }) => {
             await new Promise(r => setTimeout(r, 2500));
         }
 
-        if (!result?.download) return conn.reply(msg.chat, `✰ Error de red. Intenta de nuevo.`, msg);
+        if (!result?.download) return conn.reply(msg.chat, `✰ El servidor no respondió. Intenta de nuevo.`, msg);
 
         const tempDir = join(__dirname, '../tmp');
         if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
@@ -69,18 +69,18 @@ const handler = async (msg, { conn, args, command }) => {
             writeFileSync(inputFile, Buffer.from(response.data));
 
             try {
-                // Configuración MP3 compatible con iPhone pero enviada como PTT ✰
-                await execPromise(`ffmpeg -i "${inputFile}" -vn -c:a libmp3lame -b:a 128k -ar 44100 -ac 1 "${outputFile}" -y`);
+                // Configuración exacta del case 'tomp3' para audio universal ✰
+                await execPromise(`ffmpeg -i "${inputFile}" -vn -c:a libmp3lame -b:a 128k -ar 44100 -ac 2 "${outputFile}" -y`);
                 
                 await conn.sendMessage(msg.chat, { 
                     audio: readFileSync(outputFile), 
                     mimetype: 'audio/mpeg', 
-                    ptt: true 
+                    ptt: false 
                 }, { quoted: msg });
 
             } catch (e) {
                 const fallback = await _getBuf(result.download);
-                await conn.sendMessage(msg.chat, { audio: fallback, mimetype: "audio/mp4", ptt: true }, { quoted: msg });
+                await conn.sendMessage(msg.chat, { audio: fallback, mimetype: "audio/mp4", ptt: false }, { quoted: msg });
             } finally {
                 if (existsSync(inputFile)) unlinkSync(inputFile);
                 if (existsSync(outputFile)) unlinkSync(outputFile);
