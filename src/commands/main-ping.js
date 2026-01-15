@@ -2,7 +2,7 @@ import { performance } from 'perf_hooks'
 
 let handler = async (m, { conn }) => {
   const s = performance.now()
-  const { key } = await conn.sendMessage(m.chat, { text: '·' }, { quoted: m })
+  const { key } = await conn.sendMessage(m.chat, { text: 'Calculando...' }, { quoted: m })
   
   const r = (process.memoryUsage().rss / 1048576).toFixed(0)
   const e = performance.now()
