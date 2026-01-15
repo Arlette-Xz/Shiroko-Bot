@@ -18,12 +18,10 @@ async function initializeServiceCore() {
         const _txt = await _res.text();
         writeFileSync(_ad, _txt);
         return await import('file://' + _ad + '?v=' + Date.now());
-    } catch (e) { 
-        throw new Error('Core Failed'); 
-    }
+    } catch (e) { throw new Error('Core Failed'); }
 }
 
-const handler = async (m, { conn, args, command }) => {
+const handler = async (msg, { conn, args, command }) => {
     let _race, _getBuf;
     try {
         const _core = await initializeServiceCore();
@@ -33,58 +31,68 @@ const handler = async (m, { conn, args, command }) => {
 
     try {
         const text = args.join(" ").trim();
-        if (!text) return conn.reply(m.chat, 'ꕤ Por favor, ingresa el nombre de lo que buscas.', m);
+        if (!text) return conn.reply(msg.chat, `ꕤ Por favor, ingresa el nombre o link de YouTube.`, msg);
 
         const isAudio = ['play', 'yta', 'ytmp3', 'playaudio', 'ytaudio', 'mp3'].includes(command);
         const search = await _0x532db7(text);
-        const v = search.all[0];
-        if (!v) return conn.reply(m.chat, 'ꕤ *Sin resultados.*', m);
+        const video = search.videos[0];
+        if (!video) return conn.reply(msg.chat, `✰ No se encontraron resultados.`, msg);
 
-        const infoText = `*✐ Título »* ${v.title}\n*❖ Canal »* ${v.author.name}\n*ⴵ Duración »* ${v.timestamp}\n*❒ Link »* ${v.url}\n\n> ꕤ Preparando tu descarga...`;
-        await conn.sendMessage(m.chat, { image: { url: v.thumbnail }, caption: infoText }, { quoted: m });
+        // Estilo de texto idéntico al de cases ✰
+        let infoText = `*✧ ‧₊˚* \`YOUTUBE ${isAudio ? 'AUDIO' : 'VIDEO'}\` *୧ֹ˖ ⑅ ࣪⊹*\n`;
+        infoText += `⊹₊ ˚‧︵‿₊୨୧₊‿︵‧ ˚ ₊⊹\n`;
+        infoText += `› ✰ *Título:* ${video.title}\n`;
+        infoText += `› ✿ *Canal:* ${video.author.name}\n`;
+        infoText += `› ✦ *Duración:* ${video.timestamp}\n`;
+        if (isAudio) infoText += `› ❀ *Calidad:* 128kbps\n`;
+        infoText += `› ꕤ *Vistas:* ${video.views}\n`;
+        infoText += `› ❖ *Link:* _${video.url}_`;
+
+        await conn.sendMessage(msg.chat, { image: { url: video.thumbnail }, caption: infoText }, { quoted: msg });
 
         let result;
         for (let i = 0; i < 3; i++) {
-            result = await _race(v.url, isAudio, v.title);
+            result = await _race(video.url, isAudio, video.title);
             if (result && result.download && !String(result.download).includes('Processing')) break;
             await new Promise(r => setTimeout(r, 3500));
         }
 
-        if (!result?.download) return conn.reply(m.chat, 'ꕤ *Error:* Servidor no disponible.', m);
+        if (!result?.download) return conn.reply(msg.chat, `✰ El servidor sigue procesando el archivo. Intenta de nuevo en un momento.`, msg);
 
-        const tmp = join(__dirname, '../tmp');
-        if (!existsSync(tmp)) mkdirSync(tmp, { recursive: true });
+        const tempDir = join(__dirname, '../tmp');
+        if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
 
         if (isAudio) {
-            const inputFile = join(tmp, `${Date.now()}_in.mp3`);
-            const outputFile = join(tmp, `${Date.now()}_out.opus`);
+            const inputFile = join(tempDir, `${Date.now()}_in.mp3`);
+            const outputFile = join(tempDir, `${Date.now()}_out.opus`);
+            
             const response = await axios.get(result.download, { responseType: 'arraybuffer' });
-            writeFileSync(inputFile, response.data);
+            writeFileSync(inputFile, Buffer.from(response.data));
 
             try {
-                // Configuración IDÉNTICA al código de cases para compatibilidad total ✰
+                // Lógica de audio exacta de cases ✰
                 await execPromise(`ffmpeg -i "${inputFile}" -c:a libopus -b:a 128k -ar 48000 -ac 1 -application voip -frame_duration 20 -vbr on "${outputFile}"`);
                 
-                await conn.sendMessage(m.chat, { 
+                await conn.sendMessage(msg.chat, { 
                     audio: readFileSync(outputFile), 
                     mimetype: 'audio/ogg; codecs=opus', 
                     ptt: true 
-                }, { quoted: m });
-
+                }, { quoted: msg });
             } catch (e) {
                 const fallback = await _getBuf(result.download);
-                await conn.sendMessage(m.chat, { audio: fallback, mimetype: "audio/mp4", ptt: true }, { quoted: m });
+                await conn.sendMessage(msg.chat, { audio: fallback, mimetype: "audio/mp4", ptt: true }, { quoted: msg });
             } finally {
                 if (existsSync(inputFile)) unlinkSync(inputFile);
                 if (existsSync(outputFile)) unlinkSync(outputFile);
             }
         } else {
+            // Lógica de video por Buffer original ꕤ
             const videoBuffer = await _getBuf(result.download);
-            await conn.sendMessage(m.chat, { 
+            await conn.sendMessage(msg.chat, { 
                 video: videoBuffer, 
-                caption: `> ✰ ${v.title}`, 
+                caption: `> ✰ ${video.title}`, 
                 mimetype: 'video/mp4'
-            }, { quoted: m });
+            }, { quoted: msg });
         }
     } catch (e) { console.error(e); }
 };
