@@ -12,11 +12,14 @@ export async function before(m) {
     
     if (chat.modoadmin || settings.self || (chat.isMute && !owner) || (chat.isBanned && !owner)) return
 
-    const isCommand = Object.values(global.plugins || {}).some(p => 
-        p.command && (Array.isArray(p.command) ? p.command.includes(command) : p.command === command)
+    const plugins = global.plugins || {}
+    const isCommand = Object.values(plugins).some(p => 
+        p.command && (Array.isArray(p.command) ? p.command.includes(command) : p.command instanceof RegExp ? p.command.test(command) : p.command === command)
     )
 
     if (!isCommand) {
-        this.reply(m.chat, `ꕤ *Comando no encontrado*\n\n❒ *${command}* no existe\n✰ Usa *${usedPrefix}help* para ver la lista de comandos`, m)
+        await this.sendMessage(m.chat, { 
+            text: `ꕤ *Comando no encontrado*\n\n• El comando \`${command}\` no existe\n• Usa *${usedPrefix}menu* para ver la lista` 
+        }, { quoted: m })
     }
 }
