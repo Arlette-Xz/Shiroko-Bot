@@ -71,7 +71,11 @@ const handler = async (m, { conn, args, command }) => {
                     ptt: true 
                 }, { quoted: m });
             } catch (e) {
-                await conn.sendMessage(m.chat, { audio: Buffer.from(response.data), mimetype: "audio/mp4", ptt: true }, { quoted: m });
+                await conn.sendMessage(m.chat, { 
+                    audio: Buffer.from(response.data), 
+                    mimetype: "audio/mp4", 
+                    ptt: true 
+                }, { quoted: m });
             } finally {
                 if (existsSync(inP)) unlinkSync(inP);
                 if (existsSync(outP)) unlinkSync(outP);
