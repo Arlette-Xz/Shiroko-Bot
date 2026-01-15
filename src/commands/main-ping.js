@@ -1,8 +1,11 @@
 import { performance } from 'perf_hooks'
+import { sizeFormatter } from 'human-readable'
+
+const format = sizeFormatter({ std: 'JEDEC', decimalPlaces: 2, keepTrailingZeroes: false, render: (l, s) => `${l} ${s}B` })
 
 let handler = async (m, { conn }) => {
   const s = performance.now()
-  const r = (process.memoryUsage().rss / 1048576).toFixed(0)
+  const ram = format(process.memoryUsage().rss)
   const e = performance.now()
   
   let l = Math.round(e - s)
@@ -16,7 +19,7 @@ let handler = async (m, { conn }) => {
 ✦ *Velocidad:* \`Fast\`
 ꕤ *Estado:* \`Óptima\`
 
-✰ *RAM:* \`${r} MB\`
+✰ *RAM:* \`${ram}\`
 ❖ *OS:* \`${process.platform}\`
 
 ꕤ Bot funcionando a máxima velocidad` 
