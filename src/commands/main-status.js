@@ -1,35 +1,27 @@
 import { cpus as _cpus, totalmem, freemem, platform, hostname } from 'os'
 import { sizeFormatter } from 'human-readable'
 
-const format = sizeFormatter({ std: 'JEDEC', decimalPlaces: 2, keepTrailingZeroes: false, render: (literal, symbol) => `${literal} ${symbol}B` })
+const format = sizeFormatter({ std: 'JEDEC', decimalPlaces: 2, keepTrailingZeroes: false, render: (l, s) => `${l} ${s}B` })
 const arch = process.arch
 const plt = platform()
 const host = hostname().slice(0, 8)
 const cpuLen = _cpus().length
 
 let handler = async (m, { conn }) => {
-    const [totalUsers, totalChats, totalPlugins] = [
-        Object.keys(global.db.data.users).length,
-        Object.keys(global.db.data.chats).length,
-        Object.values(global.plugins).filter((v) => v.help && v.tags).length
-    ]
-
-    const totalBots = global.conns.filter(c => c.user && c.ws?.socket?.readyState !== 3).length
-    const totalCommands = Object.values(global.db.data.users).reduce((acc, u) => acc + (u.commands || 0), 0)
+    const db = global.db.data
+    const users = Object.values(db.users)
     
-    const cpuIdle = _cpus().reduce((acc, cpu) => acc + cpu.times.idle, 0)
-    const cpuTick = _cpus().reduce((acc, cpu) => acc + Object.values(cpu.times).reduce((a, b) => a + b, 0), 0)
-    const usage = (100 - (100 * cpuIdle / cpuTick)).toFixed(1) + '%'
+    const usage = (100 - (100 * _cpus().reduce((a, c) => a + c.times.idle, 0) / _cpus().reduce((a, c) => a + Object.values(c.times).reduce((x, y) => x + y, 0), 0))).toFixed(1) + '%'
 
     const system = `「✦」Estado de *${global.botname}*
 
 ❒ RAM [MAIN]: *${format(process.memoryUsage().rss)}*
 ❒ CPU (x${cpuLen}): *${usage}*
-✿ Bots activos: *${totalBots}*
-✐ Comandos: *${toNum(totalCommands)}*
-❒ Usuarios: *${totalUsers.toLocaleString()}*
-❒ Grupos: *${totalChats.toLocaleString()}*
-❒ Plugins: *${totalPlugins}*
+✿ Bots activos: *${global.conns.filter(c => c.user && c.ws?.socket?.readyState !== 3).length}*
+✐ Comandos: *${toNum(users.reduce((a, u) => a + (u.commands || 0), 0))}*
+❒ Usuarios: *${Object.keys(db.users).length.toLocaleString()}*
+❒ Grupos: *${Object.keys(db.chats).length.toLocaleString()}*
+❒ Plugins: *${Object.values(global.plugins).filter(v => v.help && v.tags).length}*
 
 ◤ Sistema:
     *✦ Plataforma:* ${plt} ${arch}
@@ -37,7 +29,7 @@ let handler = async (m, { conn }) => {
     *✦ RAM Usada:* ${format(totalmem() - freemem())}
     *✦ Host:* ${host}...`
 
-    await conn.reply(m.chat, system, m, (global.rcanalr || {}))
+    await conn.sendMessage(m.chat, { text: system }, { quoted: m })
 }
 
 handler.help = ['estado']
