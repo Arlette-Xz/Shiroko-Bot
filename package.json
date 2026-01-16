@@ -19,6 +19,7 @@
     "url": "git+https://github.com/Arlette-Xz/Shiroko-Bot.git"
   },
   "dependencies": {
+    "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "github:Melody-Xz/Delta",
     "awesome-phonenumber": "^5.5.1",
     "boxen": "^7.1.1",
