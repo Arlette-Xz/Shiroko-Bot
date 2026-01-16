@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "github:Melody-Xz/Delta",
+    "@whiskeysockets/baileys": "npm:neoxr/wb",
     "awesome-phonenumber": "^5.5.1",
     "boxen": "^7.1.1",
     "chalk": "^5.3.0",
