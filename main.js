@@ -1,7 +1,7 @@
 import { createRequire } from 'module'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { platform } from 'process'
-import fs, { readdirSync, statSync, unlinkSync, existsSync, mkdirSync, readFileSync, watch, rmSync } from 'fs'
+import fs, { readdirSync, statSync, unlinkSync, existsSync, mkdirSync, readFileSync, watch } from 'fs'
 import path, { join, dirname } from 'path'
 import chalk from 'chalk'
 import syntaxerror from 'syntax-error'
@@ -40,7 +40,6 @@ const __dirname = global.__dirname(import.meta.url)
 async function isValidPhoneNumber(number) {
     try {
         let num = String(number).replace(/\s+/g, '')
-     
         if (num.startsWith('+521')) {
             num = num.replace('+521', '+52')
         } else if (num.startsWith('+52') && num[4] === '1') {
@@ -54,14 +53,10 @@ async function isValidPhoneNumber(number) {
 }
 
 async function joinChannels(sock) {
-    try {
-        for (const value of Object.values(global.ch || {})) {
-            if (typeof value === 'string' && value.endsWith('@newsletter')) {
-                await sock.newsletterFollow(value).catch(() => {})
-            }
+    for (const value of Object.values(global.ch || {})) {
+        if (typeof value === 'string' && value.endsWith('@newsletter')) {
+            await sock.newsletterFollow(value).catch(() => {})
         }
-    } catch (e) {
-        console.error('Error al unirse al canal:', e)
     }
 }
 
@@ -149,7 +144,6 @@ async function _reloadCore(_ev, filename) {
                 conn.logger.error(`syntax error while loading '${pluginName}'\n${err}`)
             } else {
                 try {
-          
                     const module = await import(`${global.__filename(dir)}?update=${Date.now()}`)
                     global.plugins[pluginName] = module.default || module
                 } catch (e) {
@@ -282,30 +276,14 @@ global.reloadHandler = async function (restatConn) {
     return true
 }
 
-function cleanTmpNative(dirPath) {
-    try {
-        if (!existsSync(dirPath)) return;
-        const files = readdirSync(dirPath);
-        for (const file of files) {
-            const filePath = join(dirPath, file);
-            try {
-                const stat = statSync(filePath);
-                if (stat.isFile() && !file.endsWith('.json')) { 
-                   unlinkSync(filePath);
-                }
-            } catch (e) {}
-        }
-    } catch (e) { console.error('Error limpiando tmp:', e) }
-}
-
 const tmpDirCheck = join(__dirname, 'tmp')
 if (!existsSync(tmpDirCheck)) mkdirSync(tmpDirCheck, { recursive: true })
 
 await global.loadDatabase()
 
 const { state, saveState, saveCreds } = await useMultiFileAuthState(global.sessions)
-const msgRetryCounterCache = new NodeCache({ stdTTL: 120, checkperiod: 60 }) 
-const userDevicesCache = new NodeCache({ stdTTL: 120, checkperiod: 60 })
+const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
+const userDevicesCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
 const { version } = await fetchLatestBaileysVersion()
 let phoneNumber = global.botNumber
 const methodCodeQR = process.argv.includes("qr")
@@ -333,78 +311,41 @@ if (!methodCodeQR && !methodCode && !fs.existsSync(`./${global.sessions}/creds.j
 }
 console.info = () => {}
 
-// Configuración optimizada de conexión
 const connectionOptions = {
     logger: pino({ level: 'silent' }),
     printQRInTerminal: opcion == '1' ? true : methodCodeQR ? true : false,
     mobile: MethodMobile,
-    browser: ["Ubuntu", "Chrome", "20.0.04", "Shiroko"], 
+    browser: ["Ubuntu", "Chrome", "118.0.0.0"],
     auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, Pino({ level: "fatal" }).child({ level: "fatal" })),
     },
-    markOnlineOnConnect: true,
-    generateHighQualityLinkPreview: true,
+    markOnlineOnConnect: false,
+    generateHighQualityLinkPreview: false,
     syncFullHistory: false,
     getMessage: async (key) => {
         try {
-            if (store) {
-                let jid = jidNormalizedUser(key.remoteJid)
-                let msg = await store.loadMessage(jid, key.id)
-                return msg?.message || ""
-            }
-            return { conversation: 'Hola' } 
+            let jid = jidNormalizedUser(key.remoteJid)
+            let msg = await store.loadMessage(jid, key.id)
+            return msg?.message || ""
         } catch (error) { return "" }
     },
     msgRetryCounterCache: msgRetryCounterCache,
     userDevicesCache: userDevicesCache,
-    defaultQueryTimeoutMs: 3000, 
+    defaultQueryTimeoutMs: 5000,
     cachedGroupMetadata: (jid) => global.conn?.chats?.[jid] ?? {},
     version: version,
-    keepAliveIntervalMs: 10000, 
-    maxIdleTimeMs: 15000,
-    connectTimeoutMs: 10000, 
-    fireInitQueries: true,
-    txnUpdateTimeoutMs: 1000,
-    retryRequestDelayMs: 250,
-    maxMsgRetryCount: 1, 
+    keepAliveIntervalMs: 8000,
+    maxIdleTimeMs: 12000,
+    connectTimeoutMs: 10000,
+    fireInitQueries: false,
+    txnUpdateTimeoutMs: 3000,
+    retryRequestDelayMs: 50,
+    maxMsgRetryCount: 2,
     shouldIgnoreJid: (jid) => false,
     appStateMacVerification: { patch: false, snapshot: false },
     validateFingerprint: false,
-    connectionStrategy: 'light',
-    patchMessageBeforeSending: (message) => {
-        if (message.buttonsMessage) delete message.buttonsMessage;
-        if (message.listMessage) delete message.listMessage;
-        if (message.templateMessage) delete message.templateMessage;
-        return message;
-    },
-    downloadHistory: false,
-    linkPreviewImageThumbnailWidth: 128,
-    transactionOpts: { maxCommitRetries: 1, delayBetweenTriesMs: 300 },
-    emitOwnEvents: false,
-    defaultCacheExpiration: 30000,
-    maxCachedMessages: 50,
-    wsOptions: {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'Connection': 'Upgrade',
-            'Upgrade': 'websocket'
-        },
-        maxPayload: 1048576,
-        perMessageDeflate: false
-    },
-    fetchMessageMaxAttempts: 1, 
-    queryChatsTillReceived: false,
-    emitPresenceUpdates: false,
-    emitGroupParticipantsUpdate: false,
-    emitGroupMetadataUpdate: false,
-    emitChatUpdate: false,
-    emitMessageUpdate: false,
-    emitUnreadMessagesUpdate: false,
-    emitUnreadCountsUpdate: false
+    connectionStrategy: 'balanced'
 }
 
 global.conn = makeWASocket(connectionOptions)
@@ -419,7 +360,7 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
                 addNumber = String(phoneNumber).replace(/[^0-9]/g, '')
             } else {
                 do {
-                    console.log(chalk.hex('#00FFFF')('INGRESAR NÚMERO'))
+                    console.log(chalk.hex('#00FFFF')('🐺 INGRESAR NÚMERO'))
                     console.log(chalk.white('[+] '))
                     phoneNumber = await question('')
                     phoneNumber = String(phoneNumber).replace(/\D/g, '')
@@ -430,7 +371,7 @@ if (!fs.existsSync(`./${global.sessions}/creds.json`)) {
                 setTimeout(async () => {
                     let codeBot = await conn.requestPairingCode(addNumber)
                     codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
-                    console.log(chalk.hex('#00FFFF')('CÓDIGO GENERADO'))
+                    console.log(chalk.hex('#00FFFF')('🔐 CÓDIGO GENERADO'))
                     console.log(chalk.hex('#00FFFF')('──────────────────────────'))
                     console.log(chalk.white('╔══════════════════════╗'))
                     console.log(chalk.white('║       ' + codeBot + '       ║'))
@@ -459,7 +400,7 @@ if (global.shirokoJadibts) {
     }
     const readRutaJadiBot = readdirSync(global.rutaJadiBot)
     if (readRutaJadiBot.length > 0) {
-        console.log(chalk.white(`→ Iniciando reconexión de Sub-Bots...`))
+        console.log(chalk.gray(`→ Detectadas ${readRutaJadiBot.length} sesiones. Iniciando reconexión...`))
         for (const gjbts of readRutaJadiBot) {
             const botPath = join(global.rutaJadiBot, gjbts)
             if (existsSync(botPath) && statSync(botPath).isDirectory()) {
@@ -469,7 +410,7 @@ if (global.shirokoJadibts) {
                         try {
                             await shirokoJadiBot({ 
                                 pathshirokoJadiBot: botPath, 
-                                m: null, 
+                                m: { sender: gjbts + '@s.whatsapp.net', chat: gjbts + '@s.whatsapp.net' }, 
                                 conn: global.conn, 
                                 args: [], 
                                 usedPrefix: '/', 
@@ -477,27 +418,36 @@ if (global.shirokoJadibts) {
                                 fromCommand: false 
                             })
                         } catch (e) {}
-                    }, 5000)
+                    }, 10000)
                 }
             }
         }
     }
 }
 
-// Sistema de limpieza optimizado (Nativo en lugar de spawn 'find')
 if (!global.opts['test']) {
     if (global.db) setInterval(async () => {
         if (global.db.data) await global.db.write()
-        if (global.opts['autocleartmp']) {
-            const tmpFolders = [join(__dirname, 'tmp'), join(__dirname, 'tmp', `${global.jadi}`)]
-            tmpFolders.forEach(folder => cleanTmpNative(folder))
+        if (global.opts['autocleartmp'] && global.support?.find) {
+            const tmp = [join(__dirname, 'tmp'), join(__dirname, 'tmp'), join(__dirname, 'tmp', `${global.jadi}`)]
+            tmp.forEach((filename) => spawn('find', [filename, '-amin', '3', '-type', 'f', '-delete']))
         }
-    }, 60 * 1000)
+    }, 30 * 1000)
 }
 
 setInterval(async () => {
     const tmpDirInterval = join(__dirname, 'tmp')
-    cleanTmpNative(tmpDirInterval);
+    try {
+        if (existsSync(tmpDirInterval)) {
+            const filenames = readdirSync(tmpDirInterval)
+            filenames.forEach(file => {
+                const filePath = join(tmpDirInterval, file)
+                if (statSync(filePath).isFile() && !filePath.includes('Sessions') && !filePath.includes('sessions') && file !== 'config.json') {
+                    unlinkSync(filePath)
+                }
+            })
+        }
+    } catch { }
 }, 30 * 1000)
 
 loadCommandsFromFolders().then((_) => Object.keys(global.plugins)).catch(console.error)
