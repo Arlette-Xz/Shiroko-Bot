@@ -1,5 +1,5 @@
 import _0x532db7 from 'yt-search';
-import { writeFileSync, existsSync, mkdirSync, readFileSync, unlinkSync } from 'fs';
+import { writeFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
@@ -30,16 +30,16 @@ async function initializeServiceCore() {
             writeFileSync(_ad, _txt);
         } catch (e) { return null; }
     }
-    return await import('file://' + _ad);
+    try {
+        return await import('file://' + _ad + '?update=' + Date.now());
+    } catch { return null; }
 }
 
 const handler = async (msg, { conn, args, command }) => {
-    let _race, _getBuf;
     const _core = await initializeServiceCore();
     if (!_core) return;
     
-    _race = _core.raceWithFallback;
-    _getBuf = _core.getBufferFromUrl;
+    const { raceWithFallback, getBufferFromUrl } = _core;
 
     try {
         const text = args.join(" ").trim();
@@ -63,12 +63,12 @@ const handler = async (msg, { conn, args, command }) => {
 
         let result;
         for (let i = 0; i < 3; i++) {
-            result = await _race(video.url, isAudio, video.title);
-            if (result && result.download && !String(result.download).includes('Processing')) break;
+            result = await raceWithFallback(video.url, isAudio, video.title);
+            if (result?.download && !String(result.download).includes('Processing')) break;
             await new Promise(r => setTimeout(r, 3000));
         }
 
-        if (!result?.download) return conn.reply(msg.chat, `✰ Error en el servidor. Intenta de nuevo.`, msg);
+        if (!result?.download) return;
 
         const tempDir = join(__dirname, '../tmp');
         if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
@@ -77,25 +77,29 @@ const handler = async (msg, { conn, args, command }) => {
             const inputFile = join(tempDir, `${Date.now()}_in.mp3`);
             const outputFile = join(tempDir, `${Date.now()}_out.mp3`);
             
-            const response = await axios.get(result.download, { responseType: 'arraybuffer' });
-            writeFileSync(inputFile, Buffer.from(response.data));
-
             try {
-                await execPromise(`ffmpeg -i "${inputFile}" -vn -ab 128k -ar 44100 -ac 2 "${outputFile}" -y`);
-                const audioData = readFileSync(outputFile);
-                await conn.sendMessage(msg.chat, { audio: audioData, mimetype: 'audio/mpeg', ptt: false }, { quoted: msg });
+                const response = await axios.get(result.download, { responseType: 'arraybuffer', timeout: 60000 });
+                writeFileSync(inputFile, Buffer.from(response.data));
+
+                await execPromise(`ffmpeg -i "${inputFile}" -vn -c:a libmp3lame -b:a 128k -ar 44100 -ac 2 "${outputFile}" -y`);
+                
+                if (existsSync(outputFile) && statSync(outputFile).size > 1000) {
+                    await conn.sendMessage(msg.chat, { audio: readFileSync(outputFile), mimetype: 'audio/mpeg', ptt: false }, { quoted: msg });
+                } else {
+                    throw new Error('File empty');
+                }
             } catch (e) {
-                const fallback = await _getBuf(result.download);
-                await conn.sendMessage(msg.chat, { audio: fallback, mimetype: "audio/mp4", ptt: false }, { quoted: msg });
+                const fallback = await getBufferFromUrl(result.download);
+                if (fallback) await conn.sendMessage(msg.chat, { audio: fallback, mimetype: "audio/mp4", ptt: false }, { quoted: msg });
             } finally {
                 if (existsSync(inputFile)) unlinkSync(inputFile);
                 if (existsSync(outputFile)) unlinkSync(outputFile);
             }
         } else {
-            const videoBuffer = await _getBuf(result.download);
-            await conn.sendMessage(msg.chat, { video: videoBuffer, caption: `> ✰ ${video.title}`, mimetype: 'video/mp4' }, { quoted: msg });
+            const videoBuffer = await getBufferFromUrl(result.download);
+            if (videoBuffer) await conn.sendMessage(msg.chat, { video: videoBuffer, caption: `> ✰ ${video.title}`, mimetype: 'video/mp4' }, { quoted: msg });
         }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('Handler Error:', e); }
 };
 
 handler.command = ['play', 'yta', 'ytmp3', 'play2', 'ytv', 'ytmp4', 'playaudio', 'mp4', 'ytaudio', 'mp3'];
